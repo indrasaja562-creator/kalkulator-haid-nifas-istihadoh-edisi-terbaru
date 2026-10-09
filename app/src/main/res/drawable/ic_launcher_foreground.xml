@@ -1,8 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="72dp"
-        android:height="72dp"
-        android:drawable="@drawable/new_concept_cycle_dial_drop_1790139238439"
-        android:gravity="center" />
-</layer-list>
+PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxheWVyLWxpc3QgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj4KICAgIDxpdGVtCiAgICAgICAgYW5kcm9pZDp3aWR0aD0iMTA4ZHAiCiAgICAgICAgYW5kcm9pZDpoZWlnaHQ9IjEwOGRwIgogICAgICAgIGFuZHJvaWQ6ZHJhd2FibGU9IkBkcmF3YWJsZS9pY19sYXVuY2hlcl9maXFpaF9iYXJ1IgogICAgICAgIGFuZHJvaWQ6Z3Jhdml0eT0iY2VudGVyIiAvPgo8L2xheWVyLWxpc3Q+Cg==
