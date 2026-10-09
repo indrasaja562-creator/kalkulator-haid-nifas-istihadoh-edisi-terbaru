@@ -1,6 +1,6 @@
 {
   "name": "Kalkulator Haid",
-  "description": "Kalkulator dan panduan fiqih wanita untuk haid, nifas, dan istihadhah berlandaskan mazhab Syafi'i dilengkapi pengingat ibadah dan qadha shalat.",
+  "description": "Kalkulator, kalender pencatat siklus harian haid/nifas dengan prediksi keluarnya dan berhentinya darah, serta panduan fiqih mazhab Syafi'i.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

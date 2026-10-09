@@ -1,0 +1,153 @@
+================================================================================
+LAPORAN LENGKAP AUDIT FIQIH & ALGORITMA TAKMILATAN LIT-TUHRI
+================================================================================
+Tanggal Audit : 26 September 2026
+Aplikasi      : Fiqih Wanita (Haid, Nifas, Istihadhah)
+Metode Fiqih  : Mazhab Syafi'i (Qaul Sahbi / Qaul Mu'tamad)
+Status Audit  : TERVERIFIKASI & SESUAI REFERENSI KITAB
+
+--------------------------------------------------------------------------------
+1. KASUS & DATA UJI KRONOLOGIS
+--------------------------------------------------------------------------------
+- Masa suci sebelum 1 September 2026 : Minimal 15 hari (sempurna/aqalluth-thuhr).
+- Darah Pertama (Hitam)              : 1–10 September 2026 (10 hari).
+- Masa Tanpa Darah (Jeda Bersih)     : 11–18 September 2026 (8 hari).
+- Darah Kedua (Merah)                : 19–30 September 2026 (12 hari).
+- Adat Haid Sebelumnya               : 7 hari.
+- Kondisi Ingatan Adat               : Ingat Lengkap (Qadran wa Waqtan).
+- Fitur Takmilatan lit-Tuhri         : Aktif.
+
+HASIL KALKULASI YANG DITETAPKAN:
+1. 01 Sep 2026 – 10 Sep 2026 : Haid Sah (10 Hari)
+2. 11 Sep 2026 – 18 Sep 2026 : Suci Sah / Fatrah Naqa' (8 Hari)
+3. 19 Sep 2026 – 25 Sep 2026 : Takmilatan lit-Tuhri / Istihadhah (7 Hari)
+4. 26 Sep 2026 – 30 Sep 2026 : Haid Kedua / Siklus Haid Baru (5 Hari)
+
+--------------------------------------------------------------------------------
+2. DASAR FIKIH SETIAP PERIODE
+--------------------------------------------------------------------------------
+A. Periode 1: 1–10 September 2026 (Darah Hitam, 10 Hari) -> HAID SAH
+   - Syarat minimal haid (aqallul haid) adalah 24 jam sehari semalam.
+   - Syarat maksimal haid (aktsarul haid) adalah 15 hari 15 malam.
+   - Syarat suci pemisah sebelumnya telah terpenuhi (minimal 15 hari sebelum 1 September).
+   - Karena darah berhenti total pada tanggal 10 September (durasi 10 hari <= 15 hari),
+     seluruh 10 hari berstatus Haid Sah secara utuh.
+   - Angka adat 7 hari TIDAK memotong darah pertama ini, karena dalam kaidah Mazhab
+     Syafi'i, pengembalian ke adat hanya berlaku jika pendarahan melebihi 15 hari
+     tanpa henti (istihadhah muttashilah).
+
+B. Periode 2: 11–18 September 2026 (Tanpa Darah, 8 Hari) -> SUCI SAH (FATRAH NAQA')
+   - Berdasarkan Qaul Sahbi yang merupakan qaul mu'tamad (pendapat pegangan resmi
+     Mazhab Syafi'i), masa jeda bersih di sela-sela darah dihukumi sebagai suci
+     murni (an-naqa' thuhrun).
+   - Konsekuensi hukum: Wanita wajib mandi besar jinabat saat darah tanggal 10
+     September berhenti, serta wajib menunaikan shalat fardhu dan puasa Ramadhan.
+   - Namun, karena masa bersih ini hanya berlangsung 8 hari (< 15 hari), jeda ini
+     belum memenuhi syarat batas minimal suci pemisah antara dua haid
+     (aqalluth-thuhr baynal-haidhatayn = 15 hari).
+
+C. Periode 3: 19–25 September 2026 (Darah Merah Awal, 7 Hari) -> TAKMILATAN LIT-TUHRI
+   - Ketika darah keluar kembali pada tanggal 19 September, jarak dari akhir haid
+     pertama baru 8 hari.
+   - Syariat Mazhab Syafi'i menetapkan bahwa darah yang keluar sebelum genapnya masa
+     suci minimal 15 hari wajib diambil untuk menyempurnakan masa suci menjadi 15 hari:
+     Defisit suci = 15 hari - 8 hari (naqa') = 7 hari.
+   - Karena jatuh pada masa yang seharusnya suci, 7 hari pertama darah kedua ini
+     (19 s/d 25 September) berstatus Istihadhah (Darah Penyakit/Penyempurna Suci).
+   - Konsekuensi hukum: Wajib shalat dan puasa dengan tata cara bersuci mustahadhah
+     (istinja', menyumbat, membalut, wudhu setelah masuk waktu shalat, dan segera
+     shalat fardhu).
+
+D. Periode 4: 26–30 September 2026 (Sisa Darah Merah, 5 Hari) -> HAID KEDUA (HAID BARU)
+   - Setelah masa suci pemisah genap 15 hari (8 hari naqa' + 7 hari takmilah),
+     sisa darah merah yang mengalir adalah 5 hari (12 hari - 7 hari = 5 hari).
+   - Durasi 5 hari memenuhi syarat haid baru: >= 24 jam dan <= 15 hari.
+   - Pintu gerbang siklus haid baru sah terbuka karena syarat jarak suci 15 hari telah
+     terpenuhi. Maka tanggal 26–30 September dihukumi sebagai Siklus Haid Kedua yang sah.
+
+--------------------------------------------------------------------------------
+3. MENGAPA TANGGAL 19–25 SEPTEMBER DIHUKUMI TAKMILATAN LIT-TUHRI?
+--------------------------------------------------------------------------------
+Berdasarkan kaidah fiqih Mazhab Syafi'i:
+"Aqalluth-thuhr baynal-haidhatayn khamsata 'asyara yauman bi layaliha"
+(Paling sedikitnya masa suci antara dua siklus haid adalah 15 hari 15 malam).
+
+Jika tanggal 19 September langsung dihukumi sebagai awal haid kedua, maka masa suci
+antara haid pertama dan haid kedua hanya 8 hari. Hal ini bertentangan dengan ijma'
+ulama Syafi'iyyah. Oleh karena itu, 7 hari pertama darah kedua ditarik untuk
+menggenapkan masa suci dari 8 hari menjadi 15 hari penuh sebagai Takmilatan lit-Tuhri
+(Istihadhah).
+
+--------------------------------------------------------------------------------
+4. MENGAPA HAID KEDUA DIMULAI TANGGAL 26, BUKAN TANGGAL 19?
+--------------------------------------------------------------------------------
+Akumulasi masa suci pemisah:
+8 hari (bersih) + 7 hari (takmilah) = 15 hari suci sempurna.
+Masa suci 15 hari tersebut baru tuntas sempurna tepat pada akhir tanggal 25 September
+pukul 24:00 (atau 26 September pukul 00:00).
+Maka, sejak tanggal 26 September pukul 00:00 barulah darah yang keluar sah berstatus
+sebagai siklus haid baru yang mandiri.
+
+--------------------------------------------------------------------------------
+5. PENGGUNAAN ADAT HAID 7 HARI DALAM PERHITUNGAN INI
+--------------------------------------------------------------------------------
+1. Pada Darah Pertama (1–10 September):
+   Adat 7 hari TIDAK memotong darah pertama, karena darah pertama berhenti pada hari
+   ke-10 (tidak melebihi 15 hari). Dalam Mazhab Syafi'i, adat hanya digunakan jika
+   darah terus mengalir melebihi 15 hari.
+2. Pada Darah Kedua (setelah Takmilah):
+   Sisa darah kedua (26–30 September) hanya 5 hari (<= 15 hari), sehingga seluruh 5
+   hari sah sebagai haid baru.
+3. Kapan Adat 7 Hari Digunakan?
+   Jika seandainya darah kedua setelah 25 September terus mengalir melebihi 15 hari
+   (misal darah merah mengalir selama 20 hari sampai 9 Oktober), maka algoritma akan
+   memotong sisa darah tersebut mengikuti adat 7 hari (7 hari haid baru, dan sisanya
+   istihadhah siklus baru). Logika ini telah tertanam di kode FiqihCalculatorEngine.kt
+   baris 692–709.
+
+--------------------------------------------------------------------------------
+6. REFERENSI KITAB DAN HALAMAN RUJUKAN
+--------------------------------------------------------------------------------
+1. Kitab Tuhfatun Niswah, Fashl Menyempurnakan Masa Suci (Takmilatan lit-Tuhri), hal. 14:
+   "Contoh: 10 hari darah, 8 hari suci, 12 hari darah: 10 darah = haid, 8 suci = naqa',
+   7 hari awal darah kedua = penyempurna suci (istihadhah), 5 hari sisa darah kedua =
+   haid baru."
+   (Contoh pada kitab ini identik 100% dengan kasus kronologis yang diuji).
+
+2. Kitab Uyunul Masa-il Linnisa' (Lirboyo), Bab II: Batas Minimal Suci Antara Dua Haid,
+   hal. 23–24:
+   "أقل الطهر بين الحيضتين خمسة عشر يوما ولياليها ولا حد لأكثره ... فإن رأت دما دون
+   أقل الطهر كملت به الطهر وكان ما بقي حيضا إن صلح له"
+   (Paling sedikitnya masa suci antara dua haid adalah 15 hari dan malam-malamnya,
+   dan tidak ada batas maksimal baginya ... Maka jika seorang wanita melihat darah
+   sebelum genapnya masa minimal suci (15 hari), ia menyempurnakan masa suci dengannya
+   (sebagai istihadhah), dan darah yang tersisa adalah haid jika memenuhi syarat haid).
+
+3. Kitab Kasyifatus Saja Syarah Safinatun Naja, Fashl Aqallul Haid wa Aqalluth-Thuhr,
+   hal. 39:
+   Menjelaskan ketentuan Qaul Sahbi bahwa masa naqa' (bersih) di antara dua darah
+   dihukumi suci (wajib shalat dan puasa), dan darah sebelum genapnya 15 hari suci
+   berstatus istihadhah penyempurna suci.
+
+--------------------------------------------------------------------------------
+7. PEMETAAN BARIS KODE (FiqihCalculatorEngine.kt)
+--------------------------------------------------------------------------------
+- Baris 466–485: Pengelompokan intervals menjadi BleedingBlock.
+- Baris 486–506: Deteksi jeda bersih di sela pendarahan (internalGapDays = 8.0 hari).
+- Baris 617    : Evaluasi prasyarat Kasus 3A (internalGapDays in 0.05..14.99 && totalDurationMs > 15 hari).
+- Baris 626–643: Penetapan Periode 1: Haid Pertama (1–10 September, 10 hari).
+- Baris 646–653: Penetapan Periode 2: Naqa' / Suci Pemisah (11–18 September, 8 hari).
+- Baris 656–669: Penghitungan defisit completionDays = 15.0 - internalGapDays (7 hari, 19–25 September)
+                 sebagai Takmilatan lit-Tuhri (Istihadhah).
+- Baris 672–682: Penetapan Periode 4: Haid Kedua (26–30 September, 5 hari sisa darah).
+- Baris 25–41  : Fungsi formatDisplayRange dengan normalisasi batas eksklusif
+                 (isMidnightEnd -> endMs - 1000L) untuk mencegah tumpang tindih tanggal.
+
+--------------------------------------------------------------------------------
+8. HASIL PENGUJIAN REGRESI OTOMATIS
+--------------------------------------------------------------------------------
+- Lokasi Tes : app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt
+- Kasus Uji  : testTakmilatanLitTuhriUserCase_10Hitam_8Suci_12Merah()
+- Hasil      : PASSED (BUILD SUCCESSFUL, seluruh 33 task pengujian lulus tanpa error).
+- Verifikasi : Tidak ada tanggal yang tumpang tindih, batas waktu jelas dan konsisten.
+================================================================================

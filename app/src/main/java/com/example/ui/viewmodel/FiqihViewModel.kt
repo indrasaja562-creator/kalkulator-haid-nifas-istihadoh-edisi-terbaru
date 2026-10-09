@@ -1,17 +1,23 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
 import com.example.data.entities.CalculationHistoryEntity
+import com.example.data.entities.DailyBloodLogEntity
 import com.example.data.entities.QadhaPrayerEntity
 import com.example.data.entities.UserAdatProfileEntity
 import com.example.data.repository.FiqihRepository
+import com.example.fiqih.CalendarPredictionEngine
 import com.example.fiqih.FiqihCalculatorEngine
 import com.example.model.*
+import com.example.reminder.CycleNotificationScheduler
 import com.example.reminder.PrayerReminderHelper
 import com.example.reminder.PrayerSchedule
+import com.example.ui.theme.ThemeMode
+import com.example.ui.theme.ThemePalette
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -19,6 +25,28 @@ import java.util.*
 class FiqihViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: FiqihRepository
+    private val appPrefs = application.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+
+    // Dynamic Theme Palette and Theme Mode
+    private val _themePalette = MutableStateFlow(
+        ThemePalette.fromId(appPrefs.getString("theme_palette", ThemePalette.EMERALD.id))
+    )
+    val themePalette: StateFlow<ThemePalette> = _themePalette.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(
+        ThemeMode.fromId(appPrefs.getString("theme_mode", ThemeMode.SYSTEM.id))
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemePalette(palette: ThemePalette) {
+        _themePalette.value = palette
+        appPrefs.edit().putString("theme_palette", palette.id).apply()
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        appPrefs.edit().putString("theme_mode", mode.id).apply()
+    }
 
     // Current Navigation Tab (0=Kalkulator, 1=Pengingat & Qadha, 2=Panduan)
     private val _selectedTab = MutableStateFlow(0)
@@ -89,8 +117,42 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
     val previousHaidAdatDays: StateFlow<Int> = _previousHaidAdatDays.asStateFlow()
 
     // Istihadhah Takmilatan lit-Tuhri state
+    private val _isTakmilahEnabled = MutableStateFlow(false)
+    val isTakmilahEnabled: StateFlow<Boolean> = _isTakmilahEnabled.asStateFlow()
+
     private val _previousSuciDaysForTakmilah = MutableStateFlow(15)
     val previousSuciDaysForTakmilah: StateFlow<Int> = _previousSuciDaysForTakmilah.asStateFlow()
+
+    private val _previousHaidDurationDaysForTakmilah = MutableStateFlow<Int?>(null)
+    val previousHaidDurationDaysForTakmilah: StateFlow<Int?> = _previousHaidDurationDaysForTakmilah.asStateFlow()
+
+    private val _previousHaidContinuousForTakmilah = MutableStateFlow(true)
+    val previousHaidContinuousForTakmilah: StateFlow<Boolean> = _previousHaidContinuousForTakmilah.asStateFlow()
+
+    private val _rememberedCertainPureDayOfMonth = MutableStateFlow<Int?>(null)
+    val rememberedCertainPureDayOfMonth: StateFlow<Int?> = _rememberedCertainPureDayOfMonth.asStateFlow()
+
+    private val _rememberedCertainHaidDayOfMonth = MutableStateFlow<Int?>(null)
+    val rememberedCertainHaidDayOfMonth: StateFlow<Int?> = _rememberedCertainHaidDayOfMonth.asStateFlow()
+
+    // Category 6 (Candidate Intervals) States
+    private val _category6WindowStart = MutableStateFlow(1)
+    val category6WindowStart: StateFlow<Int> = _category6WindowStart.asStateFlow()
+
+    private val _category6WindowEnd = MutableStateFlow(30)
+    val category6WindowEnd: StateFlow<Int> = _category6WindowEnd.asStateFlow()
+
+    private val _category6PureDays = MutableStateFlow<Set<Int>>(emptySet())
+    val category6PureDays: StateFlow<Set<Int>> = _category6PureDays.asStateFlow()
+
+    private val _category6HaidDays = MutableStateFlow<Set<Int>>(emptySet())
+    val category6HaidDays: StateFlow<Set<Int>> = _category6HaidDays.asStateFlow()
+
+    private val _category6MonthLength = MutableStateFlow(30)
+    val category6MonthLength: StateFlow<Int> = _category6MonthLength.asStateFlow()
+
+    private val _validationError = MutableStateFlow<String?>(null)
+    val validationError: StateFlow<String?> = _validationError.asStateFlow()
 
     // Adat history Haid
     private val _hasPreviousAdat = MutableStateFlow(true)
@@ -146,6 +208,27 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
     val userProfile: StateFlow<UserAdatProfileEntity>
     val calculationHistory: StateFlow<List<CalculationHistoryEntity>>
     val qadhaPrayers: StateFlow<List<QadhaPrayerEntity>>
+    val allBloodLogs: StateFlow<List<DailyBloodLogEntity>>
+
+    // Calendar & Prediction States
+    private val _calendarYear = MutableStateFlow(Calendar.getInstance().get(Calendar.YEAR))
+    val calendarYear: StateFlow<Int> = _calendarYear.asStateFlow()
+
+    private val _calendarMonth = MutableStateFlow(Calendar.getInstance().get(Calendar.MONTH))
+    val calendarMonth: StateFlow<Int> = _calendarMonth.asStateFlow()
+
+    private val _selectedDateString = MutableStateFlow(CalendarDateHelper.getTodayIso())
+    val selectedDateString: StateFlow<String> = _selectedDateString.asStateFlow()
+
+    val calendarDays: StateFlow<List<CalendarDayItem>>
+    val cyclePrediction: StateFlow<CyclePredictionSummary>
+
+    // Cycle Notification Alert States
+    private val _cycleNotificationEnabled = MutableStateFlow(CycleNotificationScheduler.isNotificationEnabled(application))
+    val cycleNotificationEnabled: StateFlow<Boolean> = _cycleNotificationEnabled.asStateFlow()
+
+    private val _cycleNotificationDaysBefore = MutableStateFlow(CycleNotificationScheduler.getDaysBeforeAlert(application))
+    val cycleNotificationDaysBefore: StateFlow<Int> = _cycleNotificationDaysBefore.asStateFlow()
 
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
@@ -154,6 +237,7 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         val db = AppDatabase.getDatabase(application)
         repository = FiqihRepository(db.fiqihDao())
         PrayerReminderHelper.initNotificationChannels(application)
+        CycleNotificationScheduler.initNotificationChannel(application)
 
         userProfile = repository.userProfile
             .map { it ?: UserAdatProfileEntity() }
@@ -165,9 +249,67 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         qadhaPrayers = repository.allQadhaPrayers
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+        allBloodLogs = repository.allBloodLogs
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        calendarDays = combine(
+            _calendarYear,
+            _calendarMonth,
+            allBloodLogs,
+            userProfile
+        ) { year, month, logs, profile ->
+            CalendarPredictionEngine.generateDaysForMonth(year, month, logs, profile)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        cyclePrediction = combine(
+            allBloodLogs,
+            userProfile
+        ) { logs, profile ->
+            CalendarPredictionEngine.computeCyclePrediction(logs, profile).summary
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            CalendarPredictionEngine.computeCyclePrediction(emptyList(), UserAdatProfileEntity()).summary
+        )
+
+        // Automatically schedule local notification alert based on historical Room database data
+        viewModelScope.launch {
+            combine(
+                allBloodLogs,
+                userProfile,
+                _cycleNotificationEnabled,
+                _cycleNotificationDaysBefore
+            ) { logs, profile, enabled, daysBefore ->
+                if (enabled) {
+                    val prediction = CalendarPredictionEngine.computeCyclePrediction(logs, profile)
+                    CycleNotificationScheduler.scheduleNextCycleAlert(
+                        application,
+                        prediction.nextCycleStartEpochDay,
+                        prediction.summary.predictedNextHaidStartText
+                    )
+                } else {
+                    CycleNotificationScheduler.cancelScheduledAlarm(application)
+                }
+            }.collect()
+        }
+
         loadUserProfile()
         loadNormalHaidPreset()
-        seedSampleCyclesIfEmpty()
+        // Bersihkan riwayat sampel/otomatis sebelumnya jika ada
+        cleanupAutoGeneratedSamples()
+    }
+
+    private fun cleanupAutoGeneratedSamples() {
+        viewModelScope.launch {
+            val history = repository.allHistory.firstOrNull() ?: emptyList()
+            val autoIds = history.filter {
+                it.note in listOf("Siklus Periode Bulan Lalu (Normal)", "Siklus Periode Terakhir (Ada Istihadhah)", "Siklus Haid") ||
+                it.statusSummary.startsWith("Haid Sah: 7 Hari 0 Jam")
+            }.map { it.id }
+            autoIds.forEach { id ->
+                repository.deleteCalculation(id)
+            }
+        }
     }
 
     private fun loadUserProfile() {
@@ -301,6 +443,7 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
             HaidCategory.MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT -> {
                 _hasPreviousAdat.value = true
                 _adatMemoryType.value = AdatMemoryType.INGAT_QADRAN_LUPA_WAQTAN
+                _rememberedCertainPureDayOfMonth.value = null
             }
         }
         doCalculate()
@@ -331,8 +474,36 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         doCalculate()
     }
 
+    fun setTakmilahEnabled(enabled: Boolean) {
+        _isTakmilahEnabled.value = enabled
+        if (!enabled) {
+            _previousSuciDaysForTakmilah.value = 15
+        }
+        doCalculate()
+    }
+
     fun setPreviousSuciDaysForTakmilah(days: Int) {
         _previousSuciDaysForTakmilah.value = days.coerceIn(0, 365)
+        doCalculate()
+    }
+
+    fun setPreviousHaidDurationDaysForTakmilah(days: Int?) {
+        _previousHaidDurationDaysForTakmilah.value = days?.coerceIn(1, 15)
+        doCalculate()
+    }
+
+    fun setPreviousHaidContinuousForTakmilah(continuous: Boolean) {
+        _previousHaidContinuousForTakmilah.value = continuous
+        doCalculate()
+    }
+
+    fun setRememberedCertainPureDayOfMonth(day: Int?) {
+        _rememberedCertainPureDayOfMonth.value = day?.coerceIn(1, 31)
+        doCalculate()
+    }
+
+    fun setRememberedCertainHaidDayOfMonth(day: Int?) {
+        _rememberedCertainHaidDayOfMonth.value = day?.coerceIn(1, 31)
         doCalculate()
     }
 
@@ -342,7 +513,7 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setAdatDurationDays(days: Int) {
-        _adatDurationDays.value = days.coerceIn(1, 15)
+        _adatDurationDays.value = days.coerceIn(0, 15)
         doCalculate()
     }
 
@@ -353,6 +524,93 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAdatMemoryType(type: AdatMemoryType) {
         _adatMemoryType.value = type
+        if (type == AdatMemoryType.BELUM_PERNAH_HAID) {
+            _hasPreviousAdat.value = false
+            _rememberedCertainPureDayOfMonth.value = null
+        } else {
+            _hasPreviousAdat.value = true
+            when (type) {
+                AdatMemoryType.INGAT_LENGKAP_QADRAN_WAQTAN -> {
+                    _haidCategory.value = HaidCategory.MUTADAH_GHAIRU_MUMAYYIZAH_DZAKIRAH_QADRAN_WAQTAN
+                }
+                AdatMemoryType.LUPA_SEMUANYA_MUTAHAYYIRAH -> {
+                    _haidCategory.value = HaidCategory.MUTADAH_NASIYAH_MUTAHAYYIRAH
+                    _rememberedCertainPureDayOfMonth.value = null
+                }
+                AdatMemoryType.INGAT_QADRAN_LUPA_WAQTAN -> {
+                    _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT
+                }
+                AdatMemoryType.INGAT_WAQTAN_LUPA_QADRAN -> {
+                    _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR
+                    _rememberedCertainPureDayOfMonth.value = null
+                }
+                AdatMemoryType.BELUM_PERNAH_HAID -> {}
+            }
+        }
+        doCalculate()
+    }
+
+    fun setCategory6WindowStart(start: Int) {
+        val s = start.coerceIn(1, _category6WindowEnd.value)
+        _category6WindowStart.value = s
+        doCalculate()
+    }
+
+    fun setCategory6WindowEnd(end: Int) {
+        val e = end.coerceIn(_category6WindowStart.value, _category6MonthLength.value)
+        _category6WindowEnd.value = e
+        doCalculate()
+    }
+
+    fun setCategory6Window(start: Int, end: Int) {
+        val s = start.coerceIn(1, _category6MonthLength.value)
+        val e = end.coerceIn(s, _category6MonthLength.value)
+        _category6WindowStart.value = s
+        _category6WindowEnd.value = e
+        doCalculate()
+    }
+
+    fun toggleCategory6PureDay(day: Int) {
+        val current = _category6PureDays.value.toMutableSet()
+        if (current.contains(day)) {
+            current.remove(day)
+        } else {
+            current.add(day)
+            _category6HaidDays.value = _category6HaidDays.value - day
+        }
+        _category6PureDays.value = current
+        doCalculate()
+    }
+
+    fun toggleCategory6HaidDay(day: Int) {
+        val current = _category6HaidDays.value.toMutableSet()
+        if (current.contains(day)) {
+            current.remove(day)
+        } else {
+            current.add(day)
+            _category6PureDays.value = _category6PureDays.value - day
+        }
+        _category6HaidDays.value = current
+        doCalculate()
+    }
+
+    fun setCategory6MonthLength(length: Int) {
+        val len = length.coerceIn(28, 31)
+        val oldLen = _category6MonthLength.value
+        _category6MonthLength.value = len
+        if (_category6WindowEnd.value == oldLen || _category6WindowEnd.value > len) {
+            _category6WindowEnd.value = len
+        }
+        doCalculate()
+    }
+
+    fun resetCategory6ToKitabExample() {
+        _category6WindowStart.value = 1
+        _category6WindowEnd.value = 10
+        _category6PureDays.value = setOf(1)
+        _category6HaidDays.value = emptySet()
+        _adatDurationDays.value = 5
+        _category6MonthLength.value = 30
         doCalculate()
     }
 
@@ -417,11 +675,11 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addNewNextInterval() {
+    fun addNewNextInterval(hours: Long = 24L) {
         val current = _intervals.value
         val lastEnd = current.lastOrNull()?.endEpochMillis ?: System.currentTimeMillis()
-        val nextEnd = lastEnd + (5 * 24 * 3600_000L)
-        val nextColor = if (current.any { it.bloodColor == BloodColor.MERAH }) BloodColor.KUNING else BloodColor.MERAH
+        val nextEnd = lastEnd + (hours * 3600_000L)
+        val nextColor = current.lastOrNull()?.bloodColor ?: if (current.any { it.bloodColor == BloodColor.MERAH }) BloodColor.KUNING else BloodColor.MERAH
         val newInterval = BleedingInterval(
             startEpochMillis = lastEnd,
             endEpochMillis = nextEnd,
@@ -518,6 +776,58 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
                 isThick = true,
                 isOdorous = true,
                 note = "Haid Normal 7 Hari"
+            )
+        )
+        syncDateTimesFromIntervals()
+    }
+
+    // 2B. Preset Kasus Uji Takmilatan lit-Tuhri (10h Hitam, 8h Suci, 12h Merah - Tuhfatun Niswah hal. 14)
+    fun loadTakmilahTestPreset() {
+        _caseType.value = CaseType.HAID
+        _hasPreviousAdat.value = true
+        _adatDurationDays.value = 7
+        _adatCycleDays.value = 28
+        _adatMemoryType.value = AdatMemoryType.INGAT_LENGKAP_QADRAN_WAQTAN
+        _haidCategory.value = HaidCategory.MUTADAH_GHAIRU_MUMAYYIZAH_DZAKIRAH_QADRAN_WAQTAN
+        _isTakmilahEnabled.value = true
+        _previousSuciDaysForTakmilah.value = 15
+        _previousHaidContinuousForTakmilah.value = true
+        _hasIntermittentPause.value = false
+
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, 2026)
+            set(Calendar.MONTH, Calendar.SEPTEMBER)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val sept1 = cal.timeInMillis
+        cal.set(Calendar.DAY_OF_MONTH, 11)
+        val sept11 = cal.timeInMillis // 10 days = Sept 1 to Sept 10
+        cal.set(Calendar.DAY_OF_MONTH, 19)
+        val sept19 = cal.timeInMillis // 8 days gap = Sept 11 to Sept 18
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.MONTH, Calendar.OCTOBER)
+        val oct1 = cal.timeInMillis // 12 days = Sept 19 to Sept 30
+
+        _intervals.value = listOf(
+            BleedingInterval(
+                startEpochMillis = sept1,
+                endEpochMillis = sept11,
+                bloodColor = BloodColor.HITAM,
+                isThick = true,
+                isOdorous = true,
+                note = "Darah Hitam 1–10 September (10 Hari)"
+            ),
+            BleedingInterval(
+                startEpochMillis = sept19,
+                endEpochMillis = oct1,
+                bloodColor = BloodColor.MERAH,
+                isThick = false,
+                isOdorous = false,
+                note = "Darah Merah 19–30 September (12 Hari)"
             )
         )
         syncDateTimesFromIntervals()
@@ -671,6 +981,195 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         doCalculate()
     }
 
+    // 7. Preset Mutahayyirah Mahdhah (Lupa Total Waktu & Durasi) - Kitab Uyunul Masa'il Linnisa' hal. 84-88
+    fun loadMutahayyirahMahdhahPreset() {
+        _caseType.value = CaseType.HAID
+        _hasPreviousAdat.value = true
+        _haidCategory.value = HaidCategory.MUTADAH_NASIYAH_MUTAHAYYIRAH
+        _adatMemoryType.value = AdatMemoryType.LUPA_SEMUANYA_MUTAHAYYIRAH
+        _hasIntermittentPause.value = false
+        _intermittentPauseDays.value = 0.0
+
+        val now = System.currentTimeMillis()
+        val start = now - (18 * 24 * 3600_000L) // 18 hari pendarahan terus menerus
+        _intervals.value = listOf(
+            BleedingInterval(
+                startEpochMillis = start,
+                endEpochMillis = now,
+                bloodColor = BloodColor.MERAH,
+                isThick = true,
+                isOdorous = true,
+                note = "Darah Seragam 18 Hari (Lupa Adat Total / Mutahayyirah Mahdhah)"
+            )
+        )
+        syncDateTimesFromIntervals()
+        doCalculate()
+    }
+
+    // 8. Preset Mutahayyirah Dzakirah Waqtan dunan Qadr (Ingat Waktu Mulai, Lupa Durasi Hari)
+    fun loadMutahayyirahDzakirahWaqtanPreset() {
+        _caseType.value = CaseType.HAID
+        _hasPreviousAdat.value = true
+        _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR
+        _adatMemoryType.value = AdatMemoryType.INGAT_WAQTAN_LUPA_QADRAN
+        _hasIntermittentPause.value = false
+        _intermittentPauseDays.value = 0.0
+
+        val now = System.currentTimeMillis()
+        val start = now - (18 * 24 * 3600_000L)
+        _intervals.value = listOf(
+            BleedingInterval(
+                startEpochMillis = start,
+                endEpochMillis = now,
+                bloodColor = BloodColor.MERAH,
+                isThick = true,
+                isOdorous = true,
+                note = "Darah Seragam 18 Hari (Ingat Waktu Mulai, Lupa Jumlah Hari)"
+            )
+        )
+        syncDateTimesFromIntervals()
+        doCalculate()
+    }
+
+    // 9. Preset Mutahayyirah Dzakirah Qadran dunan Waqt (Ingat Durasi Hari, Lupa Waktu Mulai)
+    fun loadMutahayyirahDzakirahQadranPreset(adatDays: Int = 7) {
+        _caseType.value = CaseType.HAID
+        _hasPreviousAdat.value = true
+        _adatDurationDays.value = adatDays.coerceIn(1, 15)
+        _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT
+        _adatMemoryType.value = AdatMemoryType.INGAT_QADRAN_LUPA_WAQTAN
+        _hasIntermittentPause.value = false
+        _intermittentPauseDays.value = 0.0
+
+        val now = System.currentTimeMillis()
+        val start = now - (18 * 24 * 3600_000L)
+        _intervals.value = listOf(
+            BleedingInterval(
+                startEpochMillis = start,
+                endEpochMillis = now,
+                bloodColor = BloodColor.MERAH,
+                isThick = true,
+                isOdorous = true,
+                note = "Darah Seragam 18 Hari (Ingat Durasi $adatDays Hari, Lupa Waktu Mulai)"
+            )
+        )
+        syncDateTimesFromIntervals()
+        doCalculate()
+    }
+
+    // Handler to apply guided Mutahayyirah diagnosis directly to calculator
+    fun applyMutahayyirahDiagnosis(
+        isMuTadah: Boolean,
+        isMumayyizah: Boolean,
+        memoryType: AdatMemoryType,
+        adatDays: Int = 7
+    ) {
+        _caseType.value = CaseType.HAID
+        _hasIntermittentPause.value = false
+        _intermittentPauseDays.value = 0.0
+
+        val now = System.currentTimeMillis()
+        val start = now - (18 * 24 * 3600_000L)
+
+        if (!isMuTadah) {
+            _hasPreviousAdat.value = false
+            _adatMemoryType.value = AdatMemoryType.BELUM_PERNAH_HAID
+            if (isMumayyizah) {
+                _haidCategory.value = HaidCategory.MUBTADIAH_MUMAYYIZAH
+                val mid = start + (5 * 24 * 3600_000L)
+                _intervals.value = listOf(
+                    BleedingInterval(
+                        startEpochMillis = start,
+                        endEpochMillis = mid,
+                        bloodColor = BloodColor.HITAM,
+                        isThick = true,
+                        isOdorous = true,
+                        note = "Fase 1: Darah Kuat (Hitam, Kental)"
+                    ),
+                    BleedingInterval(
+                        startEpochMillis = mid,
+                        endEpochMillis = now,
+                        bloodColor = BloodColor.MERAH,
+                        isThick = false,
+                        isOdorous = false,
+                        note = "Fase 2: Darah Lemah (Merah, Encer)"
+                    )
+                )
+            } else {
+                _haidCategory.value = HaidCategory.MUBTADIAH_GHAIRU_MUMAYYIZAH
+                _intervals.value = listOf(
+                    BleedingInterval(
+                        startEpochMillis = start,
+                        endEpochMillis = now,
+                        bloodColor = BloodColor.MERAH,
+                        isThick = true,
+                        isOdorous = true,
+                        note = "Darah Seragam 18 Hari (Mubtadi'ah Ghairu Mumayyizah)"
+                    )
+                )
+            }
+        } else {
+            _hasPreviousAdat.value = true
+            _adatDurationDays.value = adatDays.coerceIn(1, 15)
+
+            if (isMumayyizah) {
+                _haidCategory.value = HaidCategory.MUTADAH_MUMAYYIZAH
+                _adatMemoryType.value = AdatMemoryType.INGAT_LENGKAP_QADRAN_WAQTAN
+                val mid = start + (6 * 24 * 3600_000L)
+                _intervals.value = listOf(
+                    BleedingInterval(
+                        startEpochMillis = start,
+                        endEpochMillis = mid,
+                        bloodColor = BloodColor.HITAM,
+                        isThick = true,
+                        isOdorous = true,
+                        note = "Fase 1: Darah Kuat (Tamyiz Mengalahkan Adat)"
+                    ),
+                    BleedingInterval(
+                        startEpochMillis = mid,
+                        endEpochMillis = now,
+                        bloodColor = BloodColor.MERAH,
+                        isThick = false,
+                        isOdorous = false,
+                        note = "Fase 2: Darah Lemah (Istihadhah)"
+                    )
+                )
+            } else {
+                _adatMemoryType.value = memoryType
+                when (memoryType) {
+                    AdatMemoryType.INGAT_LENGKAP_QADRAN_WAQTAN -> {
+                        _haidCategory.value = HaidCategory.MUTADAH_GHAIRU_MUMAYYIZAH_DZAKIRAH_QADRAN_WAQTAN
+                    }
+                    AdatMemoryType.LUPA_SEMUANYA_MUTAHAYYIRAH -> {
+                        _haidCategory.value = HaidCategory.MUTADAH_NASIYAH_MUTAHAYYIRAH
+                    }
+                    AdatMemoryType.INGAT_WAQTAN_LUPA_QADRAN -> {
+                        _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR
+                    }
+                    AdatMemoryType.INGAT_QADRAN_LUPA_WAQTAN -> {
+                        _haidCategory.value = HaidCategory.MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT
+                    }
+                    AdatMemoryType.BELUM_PERNAH_HAID -> {
+                        _haidCategory.value = HaidCategory.MUBTADIAH_GHAIRU_MUMAYYIZAH
+                    }
+                }
+                _intervals.value = listOf(
+                    BleedingInterval(
+                        startEpochMillis = start,
+                        endEpochMillis = now,
+                        bloodColor = BloodColor.MERAH,
+                        isThick = true,
+                        isOdorous = true,
+                        note = "Darah Seragam 18 Hari (${memoryType.label})"
+                    )
+                )
+            }
+        }
+
+        syncDateTimesFromIntervals()
+        doCalculate()
+    }
+
     fun doCalculate() {
         val currentIntervals = _intervals.value
         val startMs: Long
@@ -731,57 +1230,23 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
             intervals = _intervals.value,
             prayerAtStart = _prayerAtStart.value,
             hadPrayedAtStart = _hadPrayedAtStart.value,
-            prayerAtStop = _prayerAtStop.value
+            prayerAtStop = _prayerAtStop.value,
+            hasPreviousHaidBeforeNifas = _hasPreviousHaidBeforeNifas.value,
+            previousHaidAdatDays = _previousHaidAdatDays.value,
+            isTakmilahEnabled = _isTakmilahEnabled.value,
+            previousSuciDaysForTakmilah = _previousSuciDaysForTakmilah.value,
+            previousHaidDurationDaysForTakmilah = _previousHaidDurationDaysForTakmilah.value,
+            previousHaidContinuousForTakmilah = _previousHaidContinuousForTakmilah.value,
+            rememberedCertainPureDayOfMonth = _rememberedCertainPureDayOfMonth.value,
+            rememberedCertainHaidDayOfMonth = _rememberedCertainHaidDayOfMonth.value,
+            category6WindowStart = _category6WindowStart.value,
+            category6WindowEnd = _category6WindowEnd.value,
+            category6PureDays = _category6PureDays.value,
+            category6HaidDays = _category6HaidDays.value,
+            category6MonthLength = _category6MonthLength.value
         )
 
         _calculationResult.value = result
-
-        // Automatically persist calculation to Room DB
-        viewModelScope.launch {
-            val totalHours = ((endMs - startMs) / 3600_000L).coerceAtLeast(1L)
-            val totalDays = (totalHours / 24).toInt()
-
-            val historyList = repository.allHistory.firstOrNull() ?: emptyList()
-            val prevSameType = historyList.filter { it.caseType == _caseType.value.name }
-                .minByOrNull { kotlin.math.abs(it.startEpochMillis - startMs) }
-            val cycleLength = if (prevSameType != null && startMs != prevSameType.startEpochMillis) {
-                kotlin.math.abs((startMs - prevSameType.startEpochMillis) / (24 * 3600_000L)).toInt()
-            } else {
-                _adatCycleDays.value
-            }
-
-            val entity = CalculationHistoryEntity(
-                caseType = _caseType.value.name,
-                startEpochMillis = startMs,
-                endEpochMillis = endMs,
-                statusSummary = result.statusSummary,
-                categoryName = result.caseCategory,
-                categoryDetectionReason = result.categoryDetectionReason,
-                haidHours = result.haidOrNifasSegment?.durationHours ?: 0L,
-                istihadhahHours = result.istihadhahSegment?.durationHours ?: 0L,
-                suciHours = result.suciSegment?.durationHours ?: 0L,
-                totalHours = totalHours,
-                totalDays = totalDays,
-                shalatNote = result.shalatConsequence,
-                puasaNote = result.puasaConsequence,
-                mandiNote = result.mandiWajibNote,
-                cycleLengthDays = cycleLength,
-                note = if (_caseType.value == CaseType.NIFAS) "Perhitungan Nifas" else "Siklus Haid"
-            )
-            repository.saveCalculation(entity)
-
-            // Auto-populate qadha prayers
-            val todayStr = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
-            result.qadhaPrayers.forEach { prayerNameText ->
-                val qadha = QadhaPrayerEntity(
-                    prayerName = prayerNameText,
-                    dateString = todayStr,
-                    reason = "Otomatis dicatat dari kalkulator: ${result.caseCategory}",
-                    isCompleted = false
-                )
-                repository.addQadhaPrayer(qadha)
-            }
-        }
     }
 
     fun saveCurrentCalculation(customNote: String = "") {
@@ -846,7 +1311,20 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
                 note = customNote.ifBlank { if (_caseType.value == CaseType.NIFAS) "Catatan Nifas" else "Siklus Haid" }
             )
             repository.saveCalculation(entity)
-            _saveMessage.value = "Siklus berhasil disimpan ke Room Database!"
+
+            // Catat hutang shalat (qadha) bila ada
+            val todayStr = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+            result.qadhaPrayers.forEach { prayerNameText ->
+                val qadha = QadhaPrayerEntity(
+                    prayerName = prayerNameText,
+                    dateString = todayStr,
+                    reason = "Dicatat dari kalkulator: ${result.caseCategory}",
+                    isCompleted = false
+                )
+                repository.addQadhaPrayer(qadha)
+            }
+
+            _saveMessage.value = "Hasil perhitungan berhasil disimpan ke Riwayat!"
         }
     }
 
@@ -903,6 +1381,42 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
             _adatDurationDays.value = haidDays
             _adatCycleDays.value = haidDays + suciDays
             _adatNifasDays.value = nifasDays
+        }
+    }
+
+    fun saveFullProfile(
+        name: String,
+        bio: String,
+        usePersonalPhoto: Boolean,
+        photoUri: String?,
+        avatarIndex: Int,
+        haidDays: Int,
+        suciDays: Int,
+        nifasDays: Int
+    ) {
+        viewModelScope.launch {
+            val current = userProfile.value
+            val cleanName = name.trim().ifEmpty { "Muslimah" }
+            val cleanBio = bio.trim().ifEmpty { "Menjaga Kesucian & Ibadah Sesuai Mazhab Syafi'i" }
+            val cleanHaid = haidDays.coerceIn(1, 15)
+            val cleanSuci = suciDays.coerceAtLeast(15)
+            val cleanNifas = nifasDays.coerceIn(1, 60)
+
+            val updated = current.copy(
+                userName = cleanName,
+                userBio = cleanBio,
+                usePersonalPhoto = usePersonalPhoto,
+                photoUri = if (usePersonalPhoto) photoUri else null,
+                avatarTemplateIndex = avatarIndex,
+                usualHaidDays = cleanHaid,
+                usualSuciDays = cleanSuci,
+                usualNifasDays = cleanNifas
+            )
+            repository.saveProfile(updated)
+            _adatDurationDays.value = cleanHaid
+            _adatCycleDays.value = cleanHaid + cleanSuci
+            _adatNifasDays.value = cleanNifas
+            doCalculate()
         }
     }
 
@@ -993,6 +1507,18 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteCalculation(id: Long) {
+        viewModelScope.launch {
+            repository.deleteCalculation(id)
+        }
+    }
+
+    fun addQadhaPrayer(prayer: QadhaPrayerEntity) {
+        viewModelScope.launch {
+            repository.addQadhaPrayer(prayer)
+        }
+    }
+
     fun addManualQadha(prayerName: String, reason: String) {
         viewModelScope.launch {
             val todayStr = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
@@ -1010,4 +1536,197 @@ class FiqihViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshPrayerTimes() {
         _prayerSchedule.value = PrayerReminderHelper.calculatePrayerTimes()
     }
+
+    // ==========================================
+    // KALENDER HAID / NIFAS & PREDIKSI
+    // ==========================================
+
+    fun prevCalendarMonth() {
+        if (_calendarMonth.value == 0) {
+            _calendarMonth.value = 11
+            _calendarYear.value -= 1
+        } else {
+            _calendarMonth.value -= 1
+        }
+    }
+
+    fun nextCalendarMonth() {
+        if (_calendarMonth.value == 11) {
+            _calendarMonth.value = 0
+            _calendarYear.value += 1
+        } else {
+            _calendarMonth.value += 1
+        }
+    }
+
+    fun goToToday() {
+        val today = Calendar.getInstance()
+        _calendarYear.value = today.get(Calendar.YEAR)
+        _calendarMonth.value = today.get(Calendar.MONTH)
+        _selectedDateString.value = CalendarDateHelper.getTodayIso()
+    }
+
+    fun selectCalendarDate(dateString: String) {
+        _selectedDateString.value = dateString
+    }
+
+    fun saveDailyBloodLog(
+        dateString: String,
+        caseType: String,
+        hasBlood: Boolean,
+        bloodColor: String,
+        flowIntensity: String,
+        startTime: String,
+        stopTime: String,
+        isPaused: Boolean,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            val cal = Calendar.getInstance()
+            try {
+                val parsed = CalendarDateHelper.ISO_FORMAT.parse(dateString)
+                if (parsed != null) cal.time = parsed
+            } catch (e: Exception) {
+                // keep calendar time
+            }
+            val epochDay = CalendarDateHelper.toEpochDay(cal)
+            val entity = DailyBloodLogEntity(
+                dateString = dateString,
+                epochDay = epochDay,
+                caseType = caseType,
+                hasBlood = hasBlood,
+                bloodColor = bloodColor,
+                flowIntensity = flowIntensity,
+                startTime = startTime,
+                stopTime = stopTime,
+                isPaused = isPaused,
+                notes = notes
+            )
+            repository.saveBloodLog(entity)
+            _saveMessage.value = "Catatan tanggal $dateString berhasil disimpan"
+        }
+    }
+
+    fun deleteDailyBloodLog(dateString: String) {
+        viewModelScope.launch {
+            repository.deleteBloodLog(dateString)
+            _saveMessage.value = "Catatan tanggal $dateString berhasil dihapus"
+        }
+    }
+
+    fun quickToggleBloodStatusForDate(dateString: String) {
+        viewModelScope.launch {
+            val existing = allBloodLogs.value.find { it.dateString == dateString }
+            if (existing != null && existing.hasBlood) {
+                // If previously had blood, toggle to Suci
+                val updated = existing.copy(
+                    hasBlood = false,
+                    caseType = "SUCI",
+                    bloodColor = "BENING",
+                    flowIntensity = "FLEK"
+                )
+                repository.saveBloodLog(updated)
+                _saveMessage.value = "Status $dateString diubah menjadi: SUCI"
+            } else if (existing != null && !existing.hasBlood) {
+                // If previously suci, toggle to Haid (Merah)
+                val updated = existing.copy(
+                    hasBlood = true,
+                    caseType = "HAID",
+                    bloodColor = "MERAH",
+                    flowIntensity = "SEDANG"
+                )
+                repository.saveBloodLog(updated)
+                _saveMessage.value = "Status $dateString diubah menjadi: HAID (MERAH)"
+            } else {
+                // If no record, create new Haid (Merah)
+                val cal = Calendar.getInstance()
+                try {
+                    val parsed = CalendarDateHelper.ISO_FORMAT.parse(dateString)
+                    if (parsed != null) cal.time = parsed
+                } catch (e: Exception) {}
+                val epochDay = CalendarDateHelper.toEpochDay(cal)
+                val newEntity = DailyBloodLogEntity(
+                    dateString = dateString,
+                    epochDay = epochDay,
+                    caseType = "HAID",
+                    hasBlood = true,
+                    bloodColor = "MERAH",
+                    flowIntensity = "SEDANG",
+                    startTime = "08:00",
+                    stopTime = "20:00",
+                    notes = ""
+                )
+                repository.saveBloodLog(newEntity)
+                _saveMessage.value = "Status $dateString dicatat: HAID (MERAH)"
+            }
+        }
+    }
+
+    fun setCycleNotificationEnabled(enabled: Boolean) {
+        _cycleNotificationEnabled.value = enabled
+        CycleNotificationScheduler.setNotificationEnabled(getApplication(), enabled)
+        _saveMessage.value = if (enabled) "Pengingat perkiraan siklus diaktifkan" else "Pengingat dinonaktifkan"
+    }
+
+    fun setCycleNotificationDaysBefore(days: Int) {
+        _cycleNotificationDaysBefore.value = days
+        CycleNotificationScheduler.setDaysBeforeAlert(getApplication(), days)
+        _saveMessage.value = "Pengingat diatur $days hari sebelum haid"
+    }
+
+    fun sendTestCycleNotification() {
+        val daysBefore = _cycleNotificationDaysBefore.value
+        val summary = cyclePrediction.value
+        val dateText = summary.predictedNextHaidStartText ?: "dalam waktu dekat"
+        CycleNotificationScheduler.showCycleAlertNotification(getApplication(), daysBefore, dateText)
+        _saveMessage.value = "Notifikasi pengingat siklus berhasil dikirimkan!"
+    }
+
+    fun seedSampleCalendarLogsIfEmpty() {
+        viewModelScope.launch {
+            val existing = repository.getBloodLogByDate(CalendarDateHelper.getTodayIso())
+            if (existing != null) return@launch
+
+            val allLogs = repository.allBloodLogs.firstOrNull() ?: emptyList()
+            if (allLogs.isNotEmpty()) return@launch
+
+            val today = Calendar.getInstance()
+            // Sample seed: 5 days of haid ending yesterday or continuing today
+            val sampleDays = listOf(
+                Pair(-4, Quintuple("HITAM", "DERAS", "Hari ke-1: Darah deras kehitaman, kram ringan", "08:00", "23:00")),
+                Pair(-3, Quintuple("HITAM", "DERAS", "Hari ke-2: Darah hitam kental pekat", "07:30", "22:30")),
+                Pair(-2, Quintuple("MERAH", "SEDANG", "Hari ke-3: Mulai merah segar, intensitas sedang", "08:00", "21:00")),
+                Pair(-1, Quintuple("MERAH_TUA", "SEDANG", "Hari ke-4: Merah marun, sempat mampet di siang hari", "09:00", "18:00")),
+                Pair(0, Quintuple("COKLAT", "SEDIKIT", "Hari ke-5: Flek kecoklatan sedikit menjelang bersih", "10:00", "17:00"))
+            )
+
+            for ((offset, data) in sampleDays) {
+                val cal = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, offset) }
+                val iso = CalendarDateHelper.formatIso(cal)
+                val epochDay = CalendarDateHelper.toEpochDay(cal)
+                repository.saveBloodLog(
+                    DailyBloodLogEntity(
+                        dateString = iso,
+                        epochDay = epochDay,
+                        caseType = "HAID",
+                        hasBlood = true,
+                        bloodColor = data.t1,
+                        flowIntensity = data.t2,
+                        startTime = data.t4,
+                        stopTime = data.t5,
+                        isPaused = (offset == -1),
+                        notes = data.t3
+                    )
+                )
+            }
+        }
+    }
 }
+
+private data class Quintuple<A, B, C, D, E>(
+    val t1: A,
+    val t2: B,
+    val t3: C,
+    val t4: D,
+    val t5: E
+)

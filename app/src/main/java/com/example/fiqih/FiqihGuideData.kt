@@ -17,11 +17,12 @@ data class FiqihProhibitionItem(
     val reference: String
 )
 
-data class KitabOtoritatifInfo(
+data class FiqihQadhaRuleItem(
     val title: String,
-    val author: String,
-    val era: String,
-    val importance: String
+    val ruleType: String,
+    val explanation: String,
+    val example: String,
+    val referenceKitab: String
 )
 
 data class FiqihNifasGuideItem(
@@ -56,7 +57,7 @@ object FiqihGuideData {
             kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 92 & Tuhfatun Niswah hal. 36-37",
             definition = "Wanita yang baru melahirkan, darah melebihi 60 hari, dan sifat darahnya seragam atau tidak tamyiz.\nTerbagi menjadi 2:\nPoin A: Jika ia belum pernah haid sama sekali (Mubtadi'ah fil-Haid).\nPoin B: Jika ia sudah pernah haid (Mu'tadah fil-Haid).",
             hukumNifasDanIstihadhah = "Nifasnya HANYA MAJJAH (1 tetesan/sekejap). Sisa darahnya:\n- Poin A: 29 hari istihadhah (suci), lalu 1 hari haid, berulang seterusnya.\n- Poin B: Istihadhah berlanjut sesuai jumlah hari suci adat sebelumnya, lalu haid sesuai adat sebelumnya.",
-            kewajibanShalatDanQadha = "Peringatan hukum berat: Wajib mandi besar di akhir hari ke-60, lalu WAJIB MENGQADHA SHALAT selama masa istihadhah (59 hari) yang sempat ia tinggalkan!"
+            kewajibanShalatDanQadha = "Hukum qadha mengikuti fase yang dihukumi wajib shalat. Pada poin A bulan pertama, Tuhfatun Niswah menjelaskan pola nifas setetes pertama, lalu 29 hari istihadhah, kemudian 1 hari haid; sumber tidak menetapkan klaim qadha tetap 59 hari."
         ),
         FiqihNifasGuideItem(
             categoryName = "3. Mu'tadah Mumayyizah fin-Nifas",
@@ -70,7 +71,7 @@ object FiqihGuideData {
             kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 94 & Tuhfatun Niswah hal. 37-38",
             definition = "Wanita yang pernah melahirkan sebelumnya, darah melebihi 60 hari, darahnya seragam/tanpa tamyiz, dan INGAT kadar durasi hari adat nifas sebelumnya (misal 40 hari).",
             hukumNifasDanIstihadhah = "Nifasnya DIKEMBALIKAN KEPADA ADAT PERSALINAN SEBELUMNYA (misal 40 hari). Darah dari hari ke-41 sampai hari ke-60 dan seterusnya adalah ISTIHADHAH FIN-NIFAS.",
-            kewajibanShalatDanQadha = "Shalat dari hari setelah masa adat (hari ke-41) sampai hari ke-60 yang sempat ditinggalkan WAJIB DIQADHA seluruhnya (20 hari shalat fardhu)."
+            kewajibanShalatDanQadha = "Setelah melewati masa adat, fase tersebut dihukumi istihadhah; kewajiban shalat dan qadha mengikuti hukum istihadhah. Jumlah hari tidak dipatok 20 hari karena bergantung pada kadar adat yang sebenarnya."
         ),
         FiqihNifasGuideItem(
             categoryName = "5. Mu'tadah Ghairu Mumayyizah Nasiyah (Mutahayyirah Nifas)",
@@ -114,8 +115,8 @@ object FiqihGuideData {
     val haidGuideList = listOf(
         FiqihHaidGuideItem(
             categoryName = "1. Mubtadi'ah Mumayyizah",
-            kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 66 & Tuhfatun Niswah hal. 27",
-            definition = "Wanita baru pertama kali haid, darah melampaui 15 hari, dan darahnya memiliki variasi kuat dan lemah yang memenuhi 4 syarat tamyiz.",
+            kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 66 & Tuhfatun Niswah hal. 29",
+            definition = "Wanita baru pertama kali haid, darah melampaui 15 hari, dan darahnya memiliki variasi kuat dan lemah yang memenuhi 3 syarat tamyiz.",
             hukumHaidDanIstihadhah = "Darah kuat adalah HAID, darah lemah adalah ISTIHADHAH.",
             kewajibanShalatDanQadha = "Shalat selama masa darah kuat gugur. Masa darah lemah wajib shalat dan berwudhu istibahah tiap waktu fardhu."
         ),
@@ -128,8 +129,8 @@ object FiqihGuideData {
         ),
         FiqihHaidGuideItem(
             categoryName = "3. Mu'tadah Mumayyizah",
-            kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 72 & Tuhfatun Niswah hal. 30",
-            definition = "Wanita pernah haid sebelumnya, darah melampaui 15 hari, dan darahnya memenuhi 4 syarat tamyiz.",
+            kitabReference = "Kitab Uyunul Masa'il Linnisa' hal. 72 & Tuhfatun Niswah hal. 37-38",
+            definition = "Wanita pernah haid sebelumnya, darah melampaui 15 hari, dan darahnya memenuhi 3 syarat tamyiz.",
             hukumHaidDanIstihadhah = "Tamyiz mengalahkan adat! Darah kuat adalah HAID, darah lemah adalah ISTIHADHAH.",
             kewajibanShalatDanQadha = "Shalat di masa darah kuat gugur. Shalat di masa darah lemah wajib dikerjakan/diqadha jika sempat ditinggalkan."
         ),
@@ -227,14 +228,34 @@ object FiqihGuideData {
         FiqihProhibitionItem(11, "Sujud Tilawah & Sujud Syukur", "Haram", "Karena syarat sahnya sama dengan syarat shalat yaitu suci dari hadats.", "Uyunul Masa-il Linnisa' hal. 56")
     )
 
-    val kitabReferences = listOf(
-        KitabOtoritatifInfo("Uyunul Masa-il Linnisa'", "LBM-PPL Pondok Pesantren Lirboyo Kediri", "Klasik Kontemporer", "Rujukan primer pesantren Jawa Timur untuk studi komprehensif darah wanita"),
-        KitabOtoritatifInfo("Tuhfatun Niswah", "Agus Sholah (Ibnussama)", "2023", "Panduan praktis berdalil fiqih Syafi'i dengan ibarat kitab kuning"),
-        KitabOtoritatifInfo("Tuhfatul Muhtaj bi Syarh al-Minhaj", "Imam Ibnu Hajar al-Haitami (w. 974 H)", "Klasik Mazhab Syafi'i", "Kitab fatwa mu'tamad tertinggi di wilayah Hijaz dan Nusantara"),
-        KitabOtoritatifInfo("Nihayatul Muhtaj ila Syarh al-Minhaj", "Imam Syamsuddin ar-Ramli (w. 1004 H)", "Klasik Mazhab Syafi'i", "Kitab rujukan mu'tamad ulama Mesir dan Nusantara"),
-        KitabOtoritatifInfo("Al-Majmu' Syarah al-Muhadzdzab", "Imam Abu Zakariya an-Nawawi (w. 676 H)", "Ensiklopedi Fiqih Akbar", "Kitab masterpiece komparasi dalil hadits dan ketetapan mazhab Syafi'i"),
-        KitabOtoritatifInfo("Hasyiyah al-Bajuri 'ala Ibn Qasim", "Syaikh Ibrahim al-Bajuri (w. 1276 H)", "Syarah Klasik", "Rujukan standar rukun dan syarat bersuci di madrasah dan pesantren"),
-        KitabOtoritatifInfo("Bughyatul Mustarsyidin", "Sayyid Abdurrahman bin Muhammad Ba'alawi", "Klasik Hadramaut", "Kumpulan fatwa mufti Hadramaut mengenai kaidah sahbi, qadha, dan suci"),
-        KitabOtoritatifInfo("Fathul Mu'in & I'anatuth Thalibin", "Syaikh Zainuddin al-Malibari & Sayyid Bakri Syatha", "Madrasah Klasik", "Pegangan kajian hukum shalat, bersuci, dan qadha shalat wanita haid")
+    val qadhaRulesList = listOf(
+        FiqihQadhaRuleItem(
+            title = "1. Kaidah Darah Keluar Setelah Masuk Waktu Shalat (Imkanus Shalah)",
+            ruleType = "Kewajiban Qadha Awal Waktu",
+            explanation = "Jika darah haid atau nifas keluar setelah masuknya waktu shalat fardhu dan telah berlalu rentang waktu yang cukup untuk melakukan thaharah (wudhu) serta shalat seringan-ringannya (sekitar 5-10 menit), namun wanita tersebut belum sempat shalat, maka shalat tersebut WAJIB DIQADHA setelah bersuci nanti.",
+            example = "Contoh: Masuk waktu Dzuhur pukul 12:00. Pada pukul 12:15 darah haid keluar dan belum shalat Dzuhur. Maka setelah suci nanti, shalat Dzuhur tersebut wajib diqadha.",
+            referenceKitab = "Fathul Qarib hal. 23 & Uyunul Masa'il Linnisa' hal. 102"
+        ),
+        FiqihQadhaRuleItem(
+            title = "2. Kaidah Suci Sebelum Waktu Shalat Habis (Idrak Takbiratul Ihram)",
+            ruleType = "Kewajiban Shalat Akhir Waktu",
+            explanation = "Jika darah berhenti dan wanita mendapati kesucian sebelum habisnya waktu shalat sekadar durasi satu Takbiratul Ihram (sekitar 1-2 menit sebelum azan shalat berikutnya), maka shalat waktu tersebut WAJIB DIKERJAKAN (atau diqadha jika terlambat mandi).",
+            example = "Contoh: Darah berhenti pukul 15:10 (sebelum masuk Ashar pukul 15:15). Shalat Dzuhur wajib dikerjakan/diqadha.",
+            referenceKitab = "Tuhfatun Niswah hal. 42 & Kasyifatus Saja hal. 118"
+        ),
+        FiqihQadhaRuleItem(
+            title = "3. Kaidah Jamak Ta'khir Saat Suci di Waktu Kedua",
+            ruleType = "Kewajiban Gandeng Shalat Sebelumnya",
+            explanation = "Dalam mazhab Syafi'i, jika seorang wanita suci di waktu shalat kedua dari shalat yang bisa dijamak (yaitu suci di waktu ASHAR atau waktu ISYA), maka selain wajib menunaikan shalat tersebut, ia juga WAJIB MENGIKUTKAN (mengqadha) shalat sebelumnya (DZUHUR bersama ASHAR, atau MAGHRIB bersama ISYA). Jika suci di waktu Dzuhur, Maghrib, atau Subuh, hanya shalat itu saja yang wajib.",
+            example = "Contoh: Darah suci pukul 16:30 (waktu Ashar). Wajib shalat Ashar DAN wajib mengqadha shalat Dzuhur.",
+            referenceKitab = "Fathul Mu'in hal. 62 & Nihayatul Muhtaj Juz 1 hal. 394"
+        ),
+        FiqihQadhaRuleItem(
+            title = "4. Kaidah Puasa Ramadhan yang Ditinggalkan",
+            ruleType = "Kewajiban Qadha Puasa",
+            explanation = "Semua hari puasa fardhu bulan Ramadhan yang ditinggalkan selama masa haid atau nifas WAJIB DIQADHA sejumlah hari yang ditinggalkan sebelum datang Ramadhan berikutnya. Berbeda dengan shalat yang gugur dan tidak diqadha selama masa haid/nifas sah.",
+            example = "Berdasarkan hadits Sayyidah Aisyah RA: 'Kami diperintahkan untuk mengqadha puasa dan tidak diperintahkan mengqadha shalat.' (HR. Muslim no. 335)",
+            referenceKitab = "Shahih Muslim no. 335 & I'anatuth Thalibin Juz 1"
+        )
     )
 }

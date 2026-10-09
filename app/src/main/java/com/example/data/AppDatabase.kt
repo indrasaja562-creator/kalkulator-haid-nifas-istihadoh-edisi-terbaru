@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.dao.FiqihDao
 import com.example.data.entities.CalculationHistoryEntity
+import com.example.data.entities.DailyBloodLogEntity
 import com.example.data.entities.QadhaPrayerEntity
 import com.example.data.entities.UserAdatProfileEntity
 
@@ -13,9 +14,10 @@ import com.example.data.entities.UserAdatProfileEntity
     entities = [
         CalculationHistoryEntity::class,
         QadhaPrayerEntity::class,
-        UserAdatProfileEntity::class
+        UserAdatProfileEntity::class,
+        DailyBloodLogEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

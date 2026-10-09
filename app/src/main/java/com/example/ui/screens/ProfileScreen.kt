@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -32,21 +33,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.tour.tourTarget
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.core.entry.entryModelOf
-import com.patrykandpatrick.vico.core.entry.FloatEntry
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.example.data.entities.CalculationHistoryEntity
 import com.example.data.entities.UserAdatProfileEntity
 import com.example.model.AvatarTemplate
 import com.example.model.PRESET_AVATAR_TEMPLATES
+import com.example.ui.components.ThemeSettingsCard
+import com.example.ui.components.FeedbackDialog
+import com.example.ui.components.SupportDialog
+import com.example.ui.theme.EmeraldDeep
+import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.GoldTertiary
 import com.example.ui.viewmodel.FiqihViewModel
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.entry.FloatEntry
+import com.patrykandpatrick.vico.core.entry.entryModelOf
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -54,7 +62,8 @@ import java.util.*
 @Composable
 fun ProfileScreen(
     viewModel: FiqihViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onStartGuidedTour: (() -> Unit)? = null
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
     val historyList by viewModel.calculationHistory.collectAsState()
@@ -62,18 +71,21 @@ fun ProfileScreen(
     val shortDateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")) }
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var showSupportDialog by remember { mutableStateOf(false) }
     var selectedCycle1Id by remember { mutableStateOf<Long?>(null) }
     var selectedCycle2Id by remember { mutableStateOf<Long?>(null) }
-    var filterType by remember { mutableStateOf<String?>("ALL") }
+    var filterType by remember { mutableStateOf("ALL") }
+    var currentSubTab by remember { mutableIntStateOf(0) } // 0 = Riwayat, 1 = Bandingkan, 2 = Tren, 3 = Tema
 
-    // Auto select the first two cycles if available
+    // Otomatis memilih 2 siklus terbaru untuk perbandingan jika tersedia
     LaunchedEffect(historyList) {
         if (historyList.size >= 2) {
             if (selectedCycle1Id == null || historyList.none { it.id == selectedCycle1Id }) {
-                selectedCycle1Id = historyList[1].id // Older cycle
+                selectedCycle1Id = historyList[1].id
             }
             if (selectedCycle2Id == null || historyList.none { it.id == selectedCycle2Id }) {
-                selectedCycle2Id = historyList[0].id // Latest cycle
+                selectedCycle2Id = historyList[0].id
             }
         }
     }
@@ -93,171 +105,428 @@ fun ProfileScreen(
         historyList.firstOrNull { it.id == selectedCycle2Id }
     }
 
-    LazyColumn(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .testTag("profile_screen"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(Color(0xFFFAF7F2))
+            .testTag("profile_screen")
     ) {
-        // 1. User Profile Header Card
-        item {
-            UserProfileCard(
-                profile = userProfile,
-                onEditClick = { showEditProfileDialog = true }
-            )
-        }
-
-        // 2. Cycle Comparison Section ("Bandingkan Siklus Antar Periode")
-        item {
-            CycleComparisonSection(
-                historyList = historyList,
-                cycle1 = cycle1,
-                cycle2 = cycle2,
-                shortDateFormat = shortDateFormat,
-                onSelectCycle1 = { selectedCycle1Id = it },
-                onSelectCycle2 = { selectedCycle2Id = it },
-                onSeedSample = { viewModel.seedSampleCyclesIfEmpty() }
-            )
-        }
-
-        // Vico Chart Dashboard
-        item {
-            CycleDashboard(historyList = historyList)
-        }
-
-        // 3. Cycle History Header & Filter
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 1. Simple Page Header (No large banner)
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        text = "Riwayat Siklus Tersimpan",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        text = "Profil & Riwayat",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            letterSpacing = (-0.3).sp
+                        ),
+                        color = Color(0xFF1E211F)
                     )
                     Text(
-                        text = "Tersimpan aman di Room Database (${historyList.size} entri)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Pengaturan profil pribadi, riwayat siklus, dan preferensi tema",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp
+                        ),
+                        color = Color(0xFF6B726C)
                     )
                 }
+            }
 
-                if (historyList.isNotEmpty()) {
-                    var showClearConfirm by remember { mutableStateOf(false) }
-                    TextButton(
-                        onClick = { showClearConfirm = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            // 2. Kartu Profil Pengguna & Kebiasaan Adat
+            item {
+                UserProfileCard(
+                    profile = userProfile,
+                    onEditClick = { showEditProfileDialog = true },
+                    onThemeClick = { currentSubTab = 3 }
+                )
+            }
+
+            // Panduan Tur Interaktif
+            item {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onStartGuidedTour?.invoke() }
+                        .testTag("profile_open_guide_card"),
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+                    shadowElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Kosongkan", style = MaterialTheme.typography.labelSmall)
-                    }
-
-                    if (showClearConfirm) {
-                        AlertDialog(
-                            onDismissRequest = { showClearConfirm = false },
-                            title = { Text("Hapus Semua Riwayat?") },
-                            text = { Text("Semua data riwayat siklus yang tersimpan di Room Database akan dihapus permanen.") },
-                            confirmButton = {
-                                TextButton(
-                                    onClick = {
-                                        viewModel.clearAllHistory()
-                                        showClearConfirm = false
-                                    },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text("Ya, Hapus Semua")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showClearConfirm = false }) {
-                                    Text("Batal")
-                                }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE8F4EE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HelpOutline,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
+                            Column {
+                                Text(
+                                    text = "Tur Panduan Interaktif",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    ),
+                                    color = Color(0xFF1E211F)
+                                )
+                                Text(
+                                    text = "Panduan visual langkah demi langkah untuk seluruh fitur",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = Color(0xFF6B726C)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
-        }
 
-        // Filter chips: Semua, Haid, Nifas
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = filterType == "ALL",
-                    onClick = { filterType = "ALL" },
-                    label = { Text("Semua (${historyList.size})") },
-                    leadingIcon = if (filterType == "ALL") {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-                FilterChip(
-                    selected = filterType == "HAID",
-                    onClick = { filterType = "HAID" },
-                    label = { Text("Haid (${historyList.count { it.caseType == "HAID" }})") },
-                    leadingIcon = if (filterType == "HAID") {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-                FilterChip(
-                    selected = filterType == "NIFAS",
-                    onClick = { filterType = "NIFAS" },
-                    label = { Text("Nifas (${historyList.count { it.caseType == "NIFAS" }})") },
-                    leadingIcon = if (filterType == "NIFAS") {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-            }
-        }
-
-        // History items list
-        if (filteredHistory.isEmpty()) {
+            // 2. Sub-Tab Navigasi: Riwayat, Bandingkan, Tren, Tema
             item {
-                EmptyHistoryCard(
-                    onGoToCalculator = { viewModel.setTab(0) }
-                )
-            }
-        } else {
-            items(filteredHistory, key = { it.id }) { item ->
-                HistoryItemCard(
-                    item = item,
-                    dateFormat = dateFormat,
-                    onCompareSelect = {
-                        if (selectedCycle1Id == null || selectedCycle1Id == item.id) {
-                            selectedCycle1Id = item.id
-                        } else {
-                            selectedCycle2Id = item.id
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_subtabs_row"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val subtabs = listOf(
+                        0 to "Riwayat (${historyList.size})",
+                        1 to "Bandingkan",
+                        2 to "Tren",
+                        3 to "Tema"
+                    )
+                    subtabs.forEach { (index, title) ->
+                        val isSelected = currentSubTab == index
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { currentSubTab = index }
+                                .testTag(when(index) { 0 -> "tab_history" 1 -> "tab_compare" 2 -> "tab_trend" else -> "tab_theme" }),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) EmeraldPrimary else Color.White,
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) GoldTertiary.copy(alpha = 0.6f) else Color(0xFFEBE5DC)
+                            ),
+                            shadowElevation = if (isSelected) 1.dp else 0.dp
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 11.5.sp
+                                    ),
+                                    color = if (isSelected) Color.White else Color(0xFF454B46),
+                                    maxLines = 1
+                                )
+                            }
                         }
-                    },
-                    onDelete = { viewModel.deleteHistory(item.id) }
+                    }
+                }
+            }
+
+            // 3. Tampilan Konten Sesuai Sub-Tab
+            when (currentSubTab) {
+                0 -> {
+                    // TAB RIWAYAT
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FilterChip(
+                                    selected = filterType == "ALL",
+                                    onClick = { filterType = "ALL" },
+                                    label = { Text("Semua (${historyList.size})", fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = EmeraldPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = filterType == "ALL",
+                                        borderColor = if (filterType == "ALL") EmeraldPrimary else Color(0xFFEBE5DC)
+                                    )
+                                )
+                                FilterChip(
+                                    selected = filterType == "HAID",
+                                    onClick = { filterType = "HAID" },
+                                    label = { Text("Haid (${historyList.count { it.caseType == "HAID" }})", fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = EmeraldPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = filterType == "HAID",
+                                        borderColor = if (filterType == "HAID") EmeraldPrimary else Color(0xFFEBE5DC)
+                                    )
+                                )
+                                FilterChip(
+                                    selected = filterType == "NIFAS",
+                                    onClick = { filterType = "NIFAS" },
+                                    label = { Text("Nifas (${historyList.count { it.caseType == "NIFAS" }})", fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = EmeraldPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = filterType == "NIFAS",
+                                        borderColor = if (filterType == "NIFAS") EmeraldPrimary else Color(0xFFEBE5DC)
+                                    )
+                                )
+                            }
+
+                            if (historyList.isNotEmpty()) {
+                                var showClearConfirm by remember { mutableStateOf(false) }
+                                IconButton(onClick = { showClearConfirm = true }) {
+                                    Icon(
+                                        Icons.Default.DeleteSweep,
+                                        contentDescription = "Hapus Semua Riwayat",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                if (showClearConfirm) {
+                                    AlertDialog(
+                                        onDismissRequest = { showClearConfirm = false },
+                                        containerColor = Color.White,
+                                        title = { Text("Hapus Semua Riwayat?", fontWeight = FontWeight.Bold, color = Color(0xFF1E211F)) },
+                                        text = { Text("Semua data riwayat perhitungan siklus akan dihapus permanen dari penyimpanan lokal.", color = Color(0xFF454B46)) },
+                                        confirmButton = {
+                                            TextButton(
+                                                onClick = {
+                                                    viewModel.clearAllHistory()
+                                                    showClearConfirm = false
+                                                },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                            ) {
+                                                Text("Hapus Semua", fontWeight = FontWeight.Bold)
+                                            }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { showClearConfirm = false }) {
+                                                Text("Batal", color = Color(0xFF6B726C))
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (filteredHistory.isEmpty()) {
+                        item {
+                            EmptyHistoryCard(onGoToCalculator = { viewModel.setTab(0) })
+                        }
+                    } else {
+                        items(filteredHistory, key = { it.id }) { item ->
+                            HistoryItemCard(
+                                item = item,
+                                dateFormat = dateFormat,
+                                onCompareSelect = {
+                                    selectedCycle1Id = item.id
+                                    currentSubTab = 1
+                                },
+                                onDelete = { viewModel.deleteHistory(item.id) }
+                            )
+                        }
+                    }
+                }
+
+                1 -> {
+                    // TAB BANDINGKAN SIKLUS
+                    item {
+                        CycleComparisonSection(
+                            historyList = historyList,
+                            cycle1 = cycle1,
+                            cycle2 = cycle2,
+                            shortDateFormat = shortDateFormat,
+                            onSelectCycle1 = { selectedCycle1Id = it },
+                            onSelectCycle2 = { selectedCycle2Id = it },
+                            onSeedSample = { viewModel.seedSampleCyclesIfEmpty() }
+                        )
+                    }
+                }
+
+                2 -> {
+                    // TAB TREN SIKLUS
+                    item {
+                        CycleDashboard(
+                            historyList = historyList,
+                            onSeedSample = { viewModel.seedSampleCyclesIfEmpty() }
+                        )
+                    }
+                }
+
+                3 -> {
+                    // TAB TEMA & PALET WARNA DINAMIS
+                    item {
+                        val currentPalette by viewModel.themePalette.collectAsState()
+                        val currentMode by viewModel.themeMode.collectAsState()
+                        ThemeSettingsCard(
+                            currentPalette = currentPalette,
+                            currentMode = currentMode,
+                            onPaletteChange = { viewModel.setThemePalette(it) },
+                            onModeChange = { viewModel.setThemeMode(it) }
+                        )
+                    }
+                }
+            }
+
+            // Komunikasi Resmi & Dukungan Partisipasi
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = Color(0xFFEBE5DC)
                 )
+                Text(
+                    text = "Komunikasi & Dukungan",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF6B726C)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { showFeedbackDialog = true }
+                            .testTag("profile_btn_feedback"),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+                        shadowElevation = 0.5.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RateReview,
+                                contentDescription = null,
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Kritik & Saran",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = Color(0xFF1E211F)
+                            )
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { showSupportDialog = true }
+                            .testTag("profile_btn_support"),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+                        shadowElevation = 0.5.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Dukungan Infaq",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = Color(0xFF1E211F)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 
-    // Edit Profile & Avatar BottomSheet / Dialog
+    // Dialog Edit Profil
     if (showEditProfileDialog) {
         EditProfileDialog(
             currentProfile = userProfile,
             onDismiss = { showEditProfileDialog = false },
             onSave = { name, bio, usePersonal, photoUri, avatarIndex, haidDays, suciDays, nifasDays ->
-                viewModel.updateUserName(name)
-                viewModel.updateUserBio(bio)
-                if (usePersonal) {
-                    viewModel.setPhotoUri(photoUri)
-                } else {
-                    viewModel.setAvatarTemplateIndex(avatarIndex)
-                }
-                viewModel.updateAdatDays(haidDays, suciDays, nifasDays)
+                viewModel.saveFullProfile(
+                    name = name,
+                    bio = bio,
+                    usePersonalPhoto = usePersonal,
+                    photoUri = photoUri,
+                    avatarIndex = avatarIndex,
+                    haidDays = haidDays,
+                    suciDays = suciDays,
+                    nifasDays = nifasDays
+                )
                 showEditProfileDialog = false
             }
+        )
+    }
+
+    if (showFeedbackDialog) {
+        FeedbackDialog(
+            onDismissRequest = { showFeedbackDialog = false }
+        )
+    }
+
+    if (showSupportDialog) {
+        SupportDialog(
+            onDismissRequest = { showSupportDialog = false }
         )
     }
 }
@@ -268,42 +537,40 @@ fun ProfileScreen(
 @Composable
 fun UserProfileCard(
     profile: UserAdatProfileEntity,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onThemeClick: () -> Unit = {}
 ) {
     val template = PRESET_AVATAR_TEMPLATES.getOrElse(profile.avatarTemplateIndex) {
         PRESET_AVATAR_TEMPLATES[0]
     }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("user_profile_card"),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-        )
+            .testTag("user_profile_card")
+            .tourTarget("tour_profile_data"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Avatar Display
+                // Avatar
                 Box(
                     modifier = Modifier
-                        .size(76.dp)
+                        .size(64.dp)
                         .clip(CircleShape)
-                        .border(
-                            width = 2.5.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape
-                        )
+                        .border(2.dp, GoldTertiary, CircleShape)
                         .clickable { onEditClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -318,21 +585,18 @@ fun UserProfileCard(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        // Template Avatar
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
-                                    Brush.linearGradient(
-                                        template.backgroundColors.map { Color(it) }
-                                    )
+                                    Brush.linearGradient(template.backgroundColors.map { Color(it) })
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = template.initial,
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                             )
@@ -340,51 +604,60 @@ fun UserProfileCard(
                     }
                 }
 
-                // Name & Bio
+                // Nama & Bio
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = profile.userName.ifBlank { "Muslimah" },
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (!profile.usePersonalPhoto) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            ) {
-                                Text(
-                                    text = template.name,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = profile.userBio.ifBlank { "Menjaga Ibadah Sesuai Mazhab Syafi'i" },
+                        text = profile.userName.ifBlank { "Muslimah" },
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        ),
+                        color = Color(0xFF1E211F)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = profile.userBio.ifBlank { "Mazhab Syafi'i" },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        color = Color(0xFF6B726C),
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                IconButton(
-                    onClick = onEditClick,
-                    modifier = Modifier.testTag("edit_profile_button")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Profil",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    IconButton(
+                        onClick = onThemeClick,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFAF7F2))
+                            .testTag("profile_theme_shortcut_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Palette,
+                            contentDescription = "Pilih Tema",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = onEditClick,
+                        modifier = Modifier.testTag("edit_profile_button"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EmeraldPrimary,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 
@@ -404,9 +677,9 @@ fun UserProfileCard(
                     modifier = Modifier.weight(1f)
                 )
                 AdatStatPill(
-                    label = "Panjang Siklus",
-                    value = "${profile.usualHaidDays + profile.usualSuciDays} Hari",
-                    modifier = Modifier.weight(1.2f)
+                    label = "Adat Nifas",
+                    value = "${profile.usualNifasDays} Hari",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -422,8 +695,8 @@ fun AdatStatPill(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-        tonalElevation = 1.dp
+        color = Color(0xFFFAF7F2),
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC))
     ) {
         Column(
             modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
@@ -432,21 +705,22 @@ fun AdatStatPill(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFF6B726C),
+                fontSize = 11.sp
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                color = EmeraldPrimary
             )
         }
     }
 }
 
 // -------------------------------------------------------------
-// CYCLE COMPARISON SECTION ("Bandingkan Siklus Antar Periode")
+// CYCLE COMPARISON SECTION
 // -------------------------------------------------------------
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CycleComparisonSection(
     historyList: List<CalculationHistoryEntity>,
@@ -457,15 +731,14 @@ fun CycleComparisonSection(
     onSelectCycle2: (Long) -> Unit,
     onSeedSample: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("cycle_comparison_card"),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
@@ -473,65 +746,67 @@ fun CycleComparisonSection(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.CompareArrows,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE8F4EE)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.CompareArrows, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(20.dp))
+                }
                 Column {
                     Text(
                         text = "Bandingkan Siklus Antar Periode",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFF1E211F)
                     )
                     Text(
-                        text = "Analisis komparatif durasi darah, istihadhah, & kesesuaian adat",
+                        text = "Bandingkan durasi haid, istihadhah, & kesesuaian adat",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF6B726C)
                     )
                 }
             }
 
             if (historyList.size < 2) {
-                // Not enough data banner
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = Color(0xFFFAF7F2),
+                    border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
                             text = "Memerlukan minimal 2 riwayat siklus untuk membandingkan.",
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF6B726C)
                         )
                         OutlinedButton(
                             onClick = onSeedSample,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, EmeraldPrimary)
                         ) {
-                            Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldPrimary)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Muat Contoh 2 Periode Siklus")
+                            Text("Muat Contoh 2 Periode Siklus", color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
             } else {
-                // Selectors for Cycle 1 and Cycle 2
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Dropdown Cycle 1 (Older / Reference)
                     CycleSelectorDropdown(
                         label = "Siklus A (Acuan)",
                         selectedCycle = cycle1,
@@ -540,8 +815,6 @@ fun CycleComparisonSection(
                         onSelect = onSelectCycle1,
                         modifier = Modifier.weight(1f)
                     )
-
-                    // Dropdown Cycle 2 (Newer / Comparison)
                     CycleSelectorDropdown(
                         label = "Siklus B (Pembanding)",
                         selectedCycle = cycle2,
@@ -552,7 +825,6 @@ fun CycleComparisonSection(
                     )
                 }
 
-                // Comparison Content
                 if (cycle1 != null && cycle2 != null) {
                     CycleComparisonDetail(cycle1 = cycle1, cycle2 = cycle2)
                 }
@@ -576,19 +848,19 @@ fun CycleSelectorDropdown(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Color(0xFF6B726C)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Surface(
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+            color = Color(0xFFFAF7F2),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { expanded = true }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -598,18 +870,19 @@ fun CycleSelectorDropdown(
                             ?: "Pilih Siklus",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color(0xFF1E211F)
                     )
                     Text(
                         text = selectedCycle?.let { "${it.haidHours / 24}h Haid, ${it.istihadhahHours / 24}h Isti." }
                             ?: "-",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = EmeraldPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = EmeraldPrimary)
             }
 
             DropdownMenu(
@@ -627,7 +900,7 @@ fun CycleSelectorDropdown(
                                 Text(
                                     text = "${item.statusSummary} (${item.totalDays} hari total)",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = Color(0xFF6B726C)
                                 )
                             }
                         },
@@ -656,17 +929,9 @@ fun CycleComparisonDetail(
 
     val diffTotal = totalDays2 - totalDays1
     val diffHaid = haidDays2 - haidDays1
-    val diffIsti = istiDays2 - istiDays1
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-        // 1. Total Duration Comparative Bars
-        Text(
-            text = "1. Perbandingan Durasi Darah Total",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        HorizontalDivider(color = Color(0xFFEBE5DC))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -674,145 +939,87 @@ fun CycleComparisonDetail(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Siklus A",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "$totalDays1 Hari (${cycle1.totalHours % 24} Jam)",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                )
+                Text("Siklus A", style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
+                Text("$totalDays1 Hari", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1E211F))
             }
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = when {
-                    diffTotal > 0 -> MaterialTheme.colorScheme.tertiaryContainer
-                    diffTotal < 0 -> MaterialTheme.colorScheme.secondaryContainer
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
+                    diffTotal > 0 -> Color(0xFFE8F4EE)
+                    diffTotal < 0 -> Color(0xFFFBE9E7)
+                    else -> Color(0xFFFAF7F2)
+                },
+                border = BorderStroke(0.5.dp, Color(0xFFEBE5DC))
             ) {
                 Text(
                     text = when {
-                        diffTotal > 0 -> "+$diffTotal Hari (Lebih Lama)"
-                        diffTotal < 0 -> "$diffTotal Hari (Lebih Singkat)"
-                        else -> "Durasi Sama"
+                        diffTotal > 0 -> "+$diffTotal Hari"
+                        diffTotal < 0 -> "$diffTotal Hari"
+                        else -> "Sama"
                     },
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     color = when {
-                        diffTotal > 0 -> MaterialTheme.colorScheme.onTertiaryContainer
-                        diffTotal < 0 -> MaterialTheme.colorScheme.onSecondaryContainer
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        diffTotal > 0 -> EmeraldPrimary
+                        diffTotal < 0 -> Color(0xFFD32F2F)
+                        else -> Color(0xFF6B726C)
                     }
                 )
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = "Siklus B",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "$totalDays2 Hari (${cycle2.totalHours % 24} Jam)",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                )
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Text("Siklus B", style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
+                Text("$totalDays2 Hari", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1E211F))
             }
         }
 
-        // Comparative Visual Stacked Progress Bars
-        ComparativeVisualBar(
-            label = "Siklus A",
-            haidHours = cycle1.haidHours,
-            istiHours = cycle1.istihadhahHours
-        )
-        ComparativeVisualBar(
-            label = "Siklus B",
-            haidHours = cycle2.haidHours,
-            istiHours = cycle2.istihadhahHours
-        )
+        ComparativeVisualBar(label = "Siklus A", haidHours = cycle1.haidHours, istiHours = cycle1.istihadhahHours)
+        ComparativeVisualBar(label = "Siklus B", haidHours = cycle2.haidHours, istiHours = cycle2.istihadhahHours)
 
-        // 2. Breakdown Matrix
         Card(
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-            )
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF7F2)),
+            border = BorderStroke(1.dp, Color(0xFFEBE5DC))
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Parameter Siklus", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                    Text("Siklus A", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                    Text("Siklus B", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ComparisonRow(label = "Darah Haid Sah", val1 = "$haidDays1 Hari", val2 = "$haidDays2 Hari")
                 ComparisonRow(
                     label = "Darah Istihadhah",
-                    val1 = if (istiDays1 > 0) "$istiDays1 Hari" else "0 (Bersih)",
-                    val2 = if (istiDays2 > 0) "$istiDays2 Hari" else "0 (Bersih)"
+                    val1 = if (istiDays1 > 0) "$istiDays1 Hari" else "0 Hari",
+                    val2 = if (istiDays2 > 0) "$istiDays2 Hari" else "0 Hari"
                 )
                 ComparisonRow(
                     label = "Jarak Antar Siklus",
                     val1 = if (cycle1.cycleLengthDays > 0) "${cycle1.cycleLengthDays} Hari" else "-",
                     val2 = if (cycle2.cycleLengthDays > 0) "${cycle2.cycleLengthDays} Hari" else "-"
                 )
-                ComparisonRow(
-                    label = "Golongan Fiqih",
-                    val1 = cycle1.categoryName.take(15) + "...",
-                    val2 = cycle2.categoryName.take(15) + "..."
-                )
             }
         }
 
-        // 3. Fiqih Mazhab Syafi'i Insight Note
         Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFE8F4EE),
+            border = BorderStroke(0.5.dp, EmeraldPrimary.copy(alpha = 0.3f))
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.Lightbulb,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                Icon(Icons.Default.Lightbulb, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
+                Text(
+                    text = when {
+                        istiDays2 > 0 && istiDays1 == 0 ->
+                            "Pada Siklus B terdapat $istiDays2 hari istihadhah. Wajib mandi besar setelah hari ke-$haidDays2 dan menjalankan shalat."
+                        diffHaid != 0 ->
+                            "Pergeseran durasi haid sebesar ${kotlin.math.abs(diffHaid)} hari. Adat baru terbentuk bila siklus ini berulang."
+                        else ->
+                            "Kedua siklus memiliki pola durasi haid yang stabil dan sesuai adat kebiasaan Anda."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EmeraldDeep
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "Analisis Fiqih Kitab Uyunul Masa-il & Tuhfatun Niswah:",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = when {
-                            istiDays2 > 0 && istiDays1 == 0 ->
-                                "Pada Siklus B darah keluar melampaui masa normal dan terdapat $istiDays2 hari istihadhah. Pengguna wajib mandi besar setelah hari ke-$haidDays2 dan menjalankan shalat/puasa di masa istihadhah."
-                            diffHaid != 0 ->
-                                "Terdapat pergeseran durasi haid sebesar ${kotlin.math.abs(diffHaid)} hari. Dalam mazhab Syafi'i, adat kebiasaan baru dapat terbentuk jika siklus ini berulang pada periode berikutnya."
-                            else ->
-                                "Kedua siklus memiliki pola durasi yang stabil dan konsisten sesuai dengan adat kebiasaan normal Anda."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
             }
         }
     }
@@ -825,9 +1032,9 @@ fun ComparisonRow(label: String, val1: String, val2: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.3f))
-        Text(text = val1, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-        Text(text = val2, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+        Text(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.3f), color = Color(0xFF454B46))
+        Text(text = val1, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f), textAlign = TextAlign.Center, color = Color(0xFF1E211F))
+        Text(text = val2, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f), textAlign = TextAlign.End, color = Color(0xFF1E211F))
     }
 }
 
@@ -841,32 +1048,33 @@ fun ComparativeVisualBar(
     val haidRatio = (haidHours.toFloat() / total).coerceIn(0f, 1f)
     val istiRatio = (istiHours.toFloat() / total).coerceIn(0f, 1f)
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = label, style = MaterialTheme.typography.labelSmall)
+            Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
             Text(
-                text = "Haid: ${haidHours / 24}h ${haidHours % 24}j | Isti: ${istiHours / 24}h ${istiHours % 24}j",
+                text = "Haid: ${haidHours / 24}h | Isti: ${istiHours / 24}h",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = EmeraldPrimary,
+                fontWeight = FontWeight.Medium
             )
         }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(12.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(Color(0xFFEBE5DC))
         ) {
             if (haidRatio > 0) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(haidRatio)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(EmeraldPrimary)
                 )
             }
             if (istiRatio > 0) {
@@ -874,7 +1082,7 @@ fun ComparativeVisualBar(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(istiRatio)
-                        .background(MaterialTheme.colorScheme.error)
+                        .background(Color(0xFFD32F2F))
                 )
             }
         }
@@ -893,15 +1101,14 @@ fun HistoryItemCard(
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("history_item_${item.id}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+        shadowElevation = 0.5.dp
     ) {
         Column(
             modifier = Modifier
@@ -909,32 +1116,21 @@ fun HistoryItemCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header with case badge & date
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (item.caseType == "HAID") {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.tertiaryContainer
-                        }
+                        color = if (item.caseType == "HAID") Color(0xFFE8F4EE) else Color(0xFFFFF8E1),
+                        border = BorderStroke(0.5.dp, if (item.caseType == "HAID") EmeraldPrimary.copy(alpha = 0.4f) else GoldTertiary.copy(alpha = 0.5f))
                     ) {
                         Text(
                             text = item.caseType,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (item.caseType == "HAID") {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            },
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (item.caseType == "HAID") EmeraldDeep else Color(0xFFB78103),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
@@ -942,84 +1138,70 @@ fun HistoryItemCard(
                     Text(
                         text = dateFormat.format(Date(item.startEpochMillis)),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFF6B726C)
                     )
                 }
 
                 IconButton(
                     onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = "Hapus Riwayat",
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = Color(0xFFD32F2F),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            // Summary & Category
             Text(
                 text = item.statusSummary,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color(0xFF1E211F)
             )
 
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ) {
-                Text(
-                    text = item.categoryName,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
+            Text(
+                text = item.categoryName,
+                style = MaterialTheme.typography.labelSmall,
+                color = EmeraldPrimary,
+                fontWeight = FontWeight.Medium
+            )
 
-            if (item.categoryDetectionReason.isNotBlank()) {
-                Text(
-                    text = item.categoryDetectionReason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Duration stats row
+            // Duration stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFAF7F2),
+                    border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
                     modifier = Modifier.weight(1f)
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
-                        Text("Haid Sah", style = MaterialTheme.typography.labelSmall)
+                        Text("Haid Sah", style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
                         Text(
                             "${item.haidHours / 24}h ${item.haidHours % 24}j",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            color = EmeraldPrimary
                         )
                     }
                 }
 
                 if (item.istihadhahHours > 0) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFAF7F2),
+                        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("Istihadhah", style = MaterialTheme.typography.labelSmall)
+                            Text("Istihadhah", style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
                             Text(
                                 "${item.istihadhahHours / 24}h ${item.istihadhahHours % 24}j",
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.error
+                                color = Color(0xFFD32F2F)
                             )
                         }
                     }
@@ -1027,31 +1209,33 @@ fun HistoryItemCard(
 
                 if (item.cycleLengthDays > 0) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFAF7F2),
+                        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("Jarak Siklus", style = MaterialTheme.typography.labelSmall)
+                            Text("Jarak Siklus", style = MaterialTheme.typography.labelSmall, color = Color(0xFF6B726C))
                             Text(
                                 "${item.cycleLengthDays} Hari",
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = GoldTertiary
                             )
                         }
                     }
                 }
             }
 
-            // Compare action button
             OutlinedButton(
                 onClick = onCompareSelect,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.5f)),
+                contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                Icon(Icons.Default.CompareArrows, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.CompareArrows, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldPrimary)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Pilih Siklus Ini untuk Dibandingkan", style = MaterialTheme.typography.labelMedium)
+                Text("Bandingkan Siklus Ini", style = MaterialTheme.typography.labelSmall.copy(color = EmeraldPrimary, fontWeight = FontWeight.SemiBold))
             }
         }
     }
@@ -1059,22 +1243,23 @@ fun HistoryItemCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Hapus Riwayat Ini?") },
-            text = { Text("Riwayat perhitungan siklus ini akan dihapus dari Room Database.") },
+            containerColor = Color.White,
+            title = { Text("Hapus Riwayat Ini?", fontWeight = FontWeight.Bold, color = Color(0xFF1E211F)) },
+            text = { Text("Riwayat perhitungan siklus ini akan dihapus dari penyimpanan.", color = Color(0xFF454B46)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDelete()
                         showDeleteConfirm = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD32F2F))
                 ) {
-                    Text("Hapus")
+                    Text("Hapus", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Batal")
+                    Text("Batal", color = Color(0xFF6B726C))
                 }
             }
         )
@@ -1085,15 +1270,13 @@ fun HistoryItemCard(
 // EMPTY HISTORY CARD
 // -------------------------------------------------------------
 @Composable
-fun EmptyHistoryCard(
-    onGoToCalculator: () -> Unit
-) {
-    Card(
+fun EmptyHistoryCard(onGoToCalculator: () -> Unit) {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
@@ -1102,41 +1285,141 @@ fun EmptyHistoryCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.EventNote,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(44.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE8F4EE)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.EventNote, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(30.dp))
+            }
             Text(
-                text = "Belum Ada Riwayat Siklus Tersimpan",
+                text = "Belum Ada Riwayat Tersimpan",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                color = Color(0xFF1E211F)
             )
             Text(
-                text = "Hitung siklus haid atau nifas Anda di Kalkulator untuk menyimpan data ke Room Database dan membandingkan polanya.",
+                text = "Lakukan perhitungan di tab Kalkulator lalu simpan hasilnya untuk melihat riwayat dan komparasi di sini.",
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFF6B726C)
             )
             Button(
                 onClick = onGoToCalculator,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmeraldPrimary,
+                    contentColor = Color.White
+                )
             ) {
-                Icon(Icons.Default.Calculate, contentDescription = null)
+                Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Buka Kalkulator")
+                Text("Buka Kalkulator", fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 // -------------------------------------------------------------
-// EDIT PROFILE & AVATAR DIALOG
+// VICO CHART DASHBOARD
+// -------------------------------------------------------------
+@Composable
+fun CycleDashboard(
+    historyList: List<CalculationHistoryEntity>,
+    onSeedSample: () -> Unit
+) {
+    val haidCycles = remember(historyList) {
+        historyList
+            .filter { it.caseType == "HAID" }
+            .sortedBy { it.startEpochMillis }
+            .takeLast(7)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBE5DC)),
+        shadowElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                text = "Tren Durasi Haid Terakhir",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFF1E211F)
+            )
+
+            if (haidCycles.size < 2) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Memerlukan minimal 2 siklus haid tersimpan untuk menampilkan grafik tren.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFF6B726C)
+                    )
+                    OutlinedButton(
+                        onClick = onSeedSample,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, EmeraldPrimary)
+                    ) {
+                        Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldPrimary)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Muat Contoh Siklus", fontSize = 12.sp, color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            } else {
+                val durations = remember(haidCycles) {
+                    haidCycles.map { it.haidHours / 24f }
+                }
+
+                val chartEntryModel = remember(durations) {
+                    val entries = durations.mapIndexed { index, duration ->
+                        FloatEntry(x = index.toFloat(), y = duration)
+                    }
+                    entryModelOf(entries)
+                }
+
+                val bottomAxisFormatter = remember(haidCycles) {
+                    AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+                        val index = value.toInt()
+                        if (index in haidCycles.indices) {
+                            val cal = Calendar.getInstance().apply { timeInMillis = haidCycles[index].startEpochMillis }
+                            SimpleDateFormat("dd MMM", Locale("id", "ID")).format(cal.time)
+                        } else ""
+                    }
+                }
+
+                val startAxisFormatter = remember {
+                    AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
+                        "${value.toInt()}h"
+                    }
+                }
+
+                Chart(
+                    chart = columnChart(),
+                    model = chartEntryModel,
+                    startAxis = rememberStartAxis(valueFormatter = startAxisFormatter),
+                    bottomAxis = rememberBottomAxis(valueFormatter = bottomAxisFormatter),
+                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                )
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// EDIT PROFILE DIALOG
 // -------------------------------------------------------------
 @Composable
 fun EditProfileDialog(
     currentProfile: UserAdatProfileEntity,
+    isFirstSetup: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (
         name: String,
@@ -1153,13 +1436,12 @@ fun EditProfileDialog(
     var bio by remember { mutableStateOf(currentProfile.userBio) }
     var usePersonalPhoto by remember { mutableStateOf(currentProfile.usePersonalPhoto) }
     var personalPhotoUri by remember { mutableStateOf(currentProfile.photoUri) }
-    var selectedAvatarIndex by remember { mutableStateOf(currentProfile.avatarTemplateIndex) }
+    var selectedAvatarIndex by remember { mutableIntStateOf(currentProfile.avatarTemplateIndex) }
 
-    var haidDays by remember { mutableStateOf(currentProfile.usualHaidDays) }
-    var suciDays by remember { mutableStateOf(currentProfile.usualSuciDays) }
-    var nifasDays by remember { mutableStateOf(currentProfile.usualNifasDays) }
+    var haidDays by remember { mutableIntStateOf(currentProfile.usualHaidDays) }
+    var suciDays by remember { mutableIntStateOf(currentProfile.usualSuciDays) }
+    var nifasDays by remember { mutableIntStateOf(currentProfile.usualNifasDays) }
 
-    // Photo picker launcher (Android standard zero-permission Photo Picker)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -1171,55 +1453,53 @@ fun EditProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Color.White,
         title = {
             Text(
-                text = "Edit Profil & Avatar",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                if (isFirstSetup) "Atur Profil & Adat Haid" else "Edit Profil & Adat",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E211F)
             )
         },
         text = {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Name input
                 item {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Nama Pengguna") },
-                        placeholder = { Text("Contoh: Siti Aisyah") },
+                        placeholder = { Text("Muslimah") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("profile_name_input"),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary,
+                            focusedLabelColor = EmeraldPrimary
+                        )
                     )
                 }
 
-                // Bio input
                 item {
                     OutlinedTextField(
                         value = bio,
                         onValueChange = { bio = it },
-                        label = { Text("Catatan / Bio Fiqih") },
-                        placeholder = { Text("Contoh: Menjaga Ibadah Sesuai Mazhab Syafi'i") },
-                        maxLines = 2,
+                        label = { Text("Catatan / Bio") },
+                        placeholder = { Text("Menjaga Ibadah Mazhab Syafi'i") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary,
+                            focusedLabelColor = EmeraldPrimary
+                        )
                     )
                 }
 
-                // Photo Selection Options
-                item {
-                    Text(
-                        text = "Pilihan Foto Profil:",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                // Mode Toggle: Template Avatar vs Personal Photo
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1228,124 +1508,91 @@ fun EditProfileDialog(
                         FilterChip(
                             selected = !usePersonalPhoto,
                             onClick = { usePersonalPhoto = false },
-                            label = { Text("Template Avatar") },
-                            leadingIcon = if (!usePersonalPhoto) {
-                                { Icon(Icons.Default.Check, contentDescription = null) }
-                            } else null,
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Template Karakter", fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = EmeraldPrimary,
+                                selectedLabelColor = Color.White
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = !usePersonalPhoto,
+                                borderColor = if (!usePersonalPhoto) EmeraldPrimary else Color(0xFFEBE5DC)
+                            )
                         )
                         FilterChip(
                             selected = usePersonalPhoto,
                             onClick = { usePersonalPhoto = true },
-                            label = { Text("Foto Pribadi") },
-                            leadingIcon = if (usePersonalPhoto) {
-                                { Icon(Icons.Default.Check, contentDescription = null) }
-                            } else null,
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Foto Galeri", fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = EmeraldPrimary,
+                                selectedLabelColor = Color.White
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = usePersonalPhoto,
+                                borderColor = if (usePersonalPhoto) EmeraldPrimary else Color(0xFFEBE5DC)
+                            )
                         )
                     }
                 }
 
-                // Content based on selected photo mode
                 if (!usePersonalPhoto) {
-                    // Grid of preset avatar templates
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = "Pilih Template Karakter Muslimah:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                PRESET_AVATAR_TEMPLATES.chunked(3).forEach { rowItems ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        rowItems.forEach { tmpl ->
-                                            AvatarTemplateItem(
-                                                template = tmpl,
-                                                isSelected = selectedAvatarIndex == tmpl.id,
-                                                onClick = {
-                                                    selectedAvatarIndex = tmpl.id
-                                                    usePersonalPhoto = false
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            PRESET_AVATAR_TEMPLATES.take(3).forEach { tmpl ->
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedAvatarIndex = tmpl.id },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (selectedAvatarIndex == tmpl.id) Color(0xFFE8F4EE) else Color(0xFFFAF7F2),
+                                    border = BorderStroke(
+                                        if (selectedAvatarIndex == tmpl.id) 2.dp else 1.dp,
+                                        if (selectedAvatarIndex == tmpl.id) EmeraldPrimary else Color(0xFFEBE5DC)
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Brush.linearGradient(tmpl.backgroundColors.map { Color(it) })),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(tmpl.initial, fontWeight = FontWeight.Bold, color = Color.White)
                                         }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(tmpl.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E211F))
                                     }
                                 }
                             }
                         }
                     }
                 } else {
-                    // Personal Photo Picker
                     item {
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            )
+                        OutlinedButton(
+                            onClick = {
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, EmeraldPrimary)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                if (!personalPhotoUri.isNullOrBlank()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                    ) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(personalPhotoUri)
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = "Pratinjau Foto",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.AddPhotoAlternate,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                }
-
-                                Button(
-                                    onClick = {
-                                        photoPickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (personalPhotoUri != null) "Ganti Foto dari Galeri" else "Pilih Foto dari Galeri")
-                                }
-                            }
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldPrimary)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (personalPhotoUri != null) "Ganti Foto" else "Pilih dari Galeri", fontSize = 12.sp, color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
 
-                // Default Adat Habit Settings
                 item {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Text(
-                        text = "Pengaturan Kebiasaan (Adat Fiqih):",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    HorizontalDivider(color = Color(0xFFEBE5DC))
+                    Text("Pengaturan Kebiasaan (Adat):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1E211F))
                 }
 
                 item {
@@ -1361,7 +1608,7 @@ fun EditProfileDialog(
 
                 item {
                     CounterSettingRow(
-                        label = "Kebiasaan Durasi Masa Suci",
+                        label = "Kebiasaan Masa Suci",
                         value = suciDays,
                         unit = "Hari",
                         min = 15,
@@ -1385,84 +1632,24 @@ fun EditProfileDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(
-                        name,
-                        bio,
-                        usePersonalPhoto,
-                        personalPhotoUri,
-                        selectedAvatarIndex,
-                        haidDays,
-                        suciDays,
-                        nifasDays
-                    )
+                    onSave(name, bio, usePersonalPhoto, personalPhotoUri, selectedAvatarIndex, haidDays, suciDays, nifasDays)
                 },
                 modifier = Modifier.testTag("save_profile_button"),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmeraldPrimary,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Simpan Profil")
+                Text("Simpan", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Batal", color = Color(0xFF6B726C))
             }
         }
     )
-}
-
-@Composable
-fun AvatarTemplateItem(
-    template: AvatarTemplate,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        },
-        border = BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            template.backgroundColors.map { Color(it) }
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = template.initial,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                )
-            }
-
-            Text(
-                text = template.name,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
 }
 
 @Composable
@@ -1480,8 +1667,8 @@ fun CounterSettingRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-            Text(text = "$value $unit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(text = label, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = Color(0xFF1E211F))
+            Text(text = "$value $unit", style = MaterialTheme.typography.labelSmall, color = EmeraldPrimary, fontWeight = FontWeight.Bold)
         }
 
         Row(
@@ -1491,94 +1678,32 @@ fun CounterSettingRow(
             IconButton(
                 onClick = { if (value > min) onValueChange(value - 1) },
                 enabled = value > min,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFAF7F2))
             ) {
-                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Kurang")
+                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Kurang", tint = if (value > min) EmeraldPrimary else Color(0xFFB0B5B0))
             }
 
             Text(
                 text = "$value",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.widthIn(min = 28.dp),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                color = Color(0xFF1E211F)
             )
 
             IconButton(
                 onClick = { if (value < max) onValueChange(value + 1) },
                 enabled = value < max,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFAF7F2))
             ) {
-                Icon(Icons.Default.AddCircleOutline, contentDescription = "Tambah")
+                Icon(Icons.Default.AddCircleOutline, contentDescription = "Tambah", tint = if (value < max) EmeraldPrimary else Color(0xFFB0B5B0))
             }
-        }
-    }
-}
-
-@Composable
-fun CycleDashboard(historyList: List<CalculationHistoryEntity>) {
-    val haidCycles = remember(historyList) {
-        historyList
-            .filter { it.caseType == "HAID" }
-            .sortedBy { it.startEpochMillis } // Sort chronologically (oldest to newest)
-            .takeLast(7) // Last 7 cycles
-    }
-
-    if (haidCycles.size < 2) return // Need at least 2 cycles to show a trend
-
-    val durations = remember(haidCycles) {
-        haidCycles.map { it.haidHours / 24f }
-    }
-    
-    val chartEntryModel = remember(durations) {
-        val entries = durations.mapIndexed { index, duration ->
-            FloatEntry(x = index.toFloat(), y = duration)
-        }
-        entryModelOf(entries)
-    }
-
-    val bottomAxisFormatter = remember(haidCycles) {
-        AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-            val index = value.toInt()
-            if (index in haidCycles.indices) {
-                val cal = Calendar.getInstance().apply { timeInMillis = haidCycles[index].startEpochMillis }
-                SimpleDateFormat("dd MMM", Locale("id", "ID")).format(cal.time)
-            } else ""
-        }
-    }
-
-    val startAxisFormatter = remember {
-        AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
-            "${value.toInt()}h"
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Tren Siklus Haid",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "Grafik lamanya haid (hari) dari siklus-siklus terakhir.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Chart(
-                chart = columnChart(),
-                model = chartEntryModel,
-                startAxis = rememberStartAxis(valueFormatter = startAxisFormatter),
-                bottomAxis = rememberBottomAxis(valueFormatter = bottomAxisFormatter),
-                modifier = Modifier.fillMaxWidth().height(200.dp)
-            )
         }
     }
 }

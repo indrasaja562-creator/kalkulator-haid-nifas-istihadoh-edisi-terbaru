@@ -26,8 +26,11 @@ enum class HaidCategory(val label: String, val shortDesc: String) {
     MUTADAH_MUMAYYIZAH("3. Mu'tadah Mumayyizah", "Pernah haid dan darah memenuhi syarat tamyiz"),
     MUTADAH_GHAIRU_MUMAYYIZAH_DZAKIRAH_QADRAN_WAQTAN("4. Mu'tadah Ghairu Mumayyizah (Ingat Lengkap)", "Pernah haid, darah satu warna, ingat durasi dan waktu siklus"),
     MUTADAH_NASIYAH_MUTAHAYYIRAH("5. Mu'tadah Nasiyah (Mutahayyirah Mahdhah)", "Pernah haid, darah satu warna, lupa total durasi & waktu adat"),
-    MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR("6. Mu'tadah Dzakirah lil-Waqti dunan Qadr", "Ingat waktu mulai haid saja, lupa durasi jumlah harinya"),
-    MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT("7. Mu'tadah Dzakirah lil-Qadri dunan Waqt", "Ingat durasi jumlah hari haid saja, lupa kapan waktu mulainya")
+    // Menurut susunan Tuhfatun Niswah:
+    // 6 = ingat Qadr (durasi), lupa Waqt (waktu mulai)
+    // 7 = ingat Waqt (waktu mulai), lupa Qadr (durasi)
+    MUTADAH_DZAKIRAH_QADRAN_DUNAN_WAQT("6. Mu'tadah Dzakirah lil-Qadri dunan Waqt", "Ingat durasi kebiasaan haid, lupa kapan waktu mulainya"),
+    MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR("7. Mu'tadah Dzakirah lil-Waqti dunan Qadr", "Ingat kapan waktu mulai haid, lupa durasi kebiasaan haid")
 }
 
 // 5 Golongan + 2 Catatan Mustahadhah fin-Nifas menurut Uyunul Masa-il Linnisa' & Tuhfatun Niswah
@@ -79,11 +82,60 @@ data class BleedingInterval(
             "${(durationMillis / (1000L * 60 * 60))} Jam"
         }
 
-    // Comprehensive fiqih score: Color score (primary) + thickness (secondary) + odor (tertiary)
-    val totalScore: Int get() = (bloodColor.score * 10) + (if (isThick) 2 else 0) + (if (isOdorous) 1 else 0)
+    /**
+     * Kekuatan darah untuk hukum tamyiz pada V2.0 mengikuti pendapat yang
+     * disebut dalam Tuhfatun Niswah: Imam al-Haramain dan Imam al-Ghazali.
+     * Penentu kuat/lemah cukup warna darah; sifat kental/berbau tidak ikut
+     * mengubah hasil hukum.
+     */
+    val strengthScore: Int get() = bloodColor.score
 
-    val isStrongBlood: Boolean get() = bloodColor.score >= 4 || isThick
+    /** Dipertahankan untuk kompatibilitas data/UI lama. Tidak dipakai sebagai dasar hukum. */
+    @Deprecated("Gunakan strengthScore; ketebalan dan bau tidak menjadi penentu hukum pada V2.0")
+    val totalScore: Int get() = strengthScore
+
+    val isStrongBlood: Boolean get() = strengthScore >= BloodColor.MERAH.score
 }
+
+
+/** Status fiqih per bagian/periode. */
+enum class FiqihStatus {
+    HAID,
+    NIFAS,
+    ISTIHADHAH,
+    SUCI,
+    IHTIYATH
+}
+
+/**
+ * Hasil hukum untuk satu rentang waktu. Model ini memungkinkan satu kasus
+ * mempunyai banyak fase kronologis, bukan hanya satu segmen haid dan satu
+ * segmen istihadhah.
+ */
+data class FiqihPeriodResult(
+    val startEpochMillis: Long,
+    val endEpochMillis: Long,
+    val status: FiqihStatus,
+    val reason: String = "",
+    val needsGhusl: Boolean = false,
+    val needsWudhu: Boolean = false,
+    val needsQadha: Boolean = false
+) {
+    val durationMillis: Long
+        get() = (endEpochMillis - startEpochMillis).coerceAtLeast(0)
+
+    val durationHours: Long
+        get() = durationMillis / (1000L * 60L * 60L)
+}
+
+/** Hasil pemeriksaan tiga syarat utama tamyiz. */
+data class TamyizCheckResult(
+    val valid: Boolean,
+    val strongDurationMillis: Long,
+    val weakContinuousDurationMillis: Long,
+    val hasSecondStrongOfSameType: Boolean,
+    val reason: String
+)
 
 data class PeriodSegment(
     val title: String,
@@ -104,6 +156,53 @@ data class KitabReference(
     val explanation: String
 )
 
+enum class FiqhPeriodStatus(val label: String, val arabicText: String) {
+    HAID_YAKIN("Haid Yakin", "حيض بيقين"),
+    SUCI_YAKIN("Suci Yakin", "طهر بيقين"),
+    SYAK_HAID_Suci("Syak Haid & Suci (Tanpa Kemungkinan Berhenti)", "محتمل للحيض والطهر دون الانقطاع"),
+    SYAK_HAID_Suci_PUTUS("Syak Haid, Suci & Kemungkinan Inqitha'", "محتمل للحيض والطهر والانقطاع")
+}
+
+enum class IhtiyatAction(val label: String, val description: String) {
+    NONE(
+        "Tidak Ada Ihtiyath Khusus",
+        "Hukum berlaku pasti sesuai statusnya: haid yakin haram shalat/puasa, suci yakin wajib shalat/puasa seperti biasa."
+    ),
+    WUDHU_SETIAP_FARDHU(
+        "Wudhu Setiap Masuk Waktu Fardhu",
+        "Wajib berwudhu setiap kali masuk waktu shalat fardhu (tanpa kewajiban mandi), serta wajib shalat dan puasa atas dasar ihtiyath."
+    ),
+    GHUSL_SETIAP_FARDHU(
+        "Ghusl (Mandi) Setiap Masuk Waktu Fardhu",
+        "Wajib mandi besar setiap kali masuk waktu shalat fardhu karena ada kemungkinan saat itu adalah waktu berhentinya haid (inqitha'), lalu berwudhu dan shalat fardhu."
+    )
+}
+
+data class Category6PeriodResult(
+    val startDay: Int,
+    val endDay: Int,
+    val status: FiqhPeriodStatus,
+    val ihtiyatAction: IhtiyatAction,
+    val explanation: String
+)
+
+data class Category6CalculationResult(
+    val isValid: Boolean,
+    val errorMessage: String? = null,
+    val monthLength: Int = 30,
+    val habitDurationDays: Int = 5,
+    val positionWindowStart: Int = 1,
+    val positionWindowEnd: Int = 10,
+    val certainPureDays: Set<Int> = emptySet(),
+    val certainHaidDays: Set<Int> = emptySet(),
+    val generatedCandidatesCount: Int = 0,
+    val validCandidates: List<IntRange> = emptyList(),
+    val eliminatedPureCandidates: List<IntRange> = emptyList(),
+    val eliminatedHaidCandidates: List<IntRange> = emptyList(),
+    val periodResults: List<Category6PeriodResult> = emptyList(),
+    val summaryExplanation: String = ""
+)
+
 data class CalculationResult(
     val statusSummary: String,
     val caseCategory: String,
@@ -119,7 +218,12 @@ data class CalculationResult(
     val medicalAndSpiritualAdvice: String,
     val references: List<KitabReference>,
     val phaseBreakdowns: List<String> = emptyList(),
-    val isWarningIncluded: Boolean = true
+    /** Fase hukum kronologis V2.0; phaseBreakdowns tetap dipertahankan untuk UI lama. */
+    val periodResults: List<FiqihPeriodResult> = emptyList(),
+    val allSegments: List<PeriodSegment> = emptyList(),
+    val tamyizCheck: TamyizCheckResult? = null,
+    val isWarningIncluded: Boolean = true,
+    val category6Calculation: Category6CalculationResult? = null
 )
 
 data class AvatarTemplate(
@@ -181,4 +285,3 @@ val PRESET_AVATAR_TEMPLATES = listOf(
         initial = "R"
     )
 )
-

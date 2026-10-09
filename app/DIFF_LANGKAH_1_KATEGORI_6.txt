@@ -1,0 +1,226 @@
+================================================================================
+DIFF LENGKAP PERBAIKAN LANGKAH 1 (KATEGORI 6)
+================================================================================
+
+--------------------------------------------------------------------------------
+1. app/src/main/java/com/example/fiqih/Category6Calculator.kt
+--------------------------------------------------------------------------------
+KODE LAMA (Baris 31-105):
+31:    fun calculateCategory6(
+32:        monthLength: Int = 30,
+33:        habitDurationDays: Int,
+34:        positionWindowStart: Int = 1,
+35:        positionWindowEnd: Int = 10,
+36:        certainPureDays: Set<Int> = setOf(1),
+37:        certainHaidDays: Set<Int> = emptySet()
+38:    ): Category6CalculationResult {
+39:        // [Belum ada validasi rentang, batas maksimal haid 15 hari, dan pengembalian dini jika kandidat kosong]
+...
+68:        // [Jika finalValidCandidates kosong, perulangan 0 == 0 menyebabkan semua hari menjadi HAID_YAKIN]
+
+KODE BARU (Baris 31-155):
+31:    fun calculateCategory6(
+32:        monthLength: Int = 30,
+33:        habitDurationDays: Int,
+34:        positionWindowStart: Int,
+35:        positionWindowEnd: Int,
+36:        certainPureDays: Set<Int> = emptySet(),
+37:        certainHaidDays: Set<Int> = emptySet()
+38:    ): Category6CalculationResult {
+39:        // 1. Validasi Input
+40:        if (monthLength < 1 || monthLength > 31) {
+41:            return Category6CalculationResult(
+42:                isValid = false,
+43:                errorMessage = "Jumlah hari dalam bulan ($monthLength hari) tidak valid. Harus antara 1 sampai 31 hari.",
+44:                monthLength = monthLength,
+45:                habitDurationDays = habitDurationDays,
+46:                positionWindowStart = positionWindowStart,
+47:                positionWindowEnd = positionWindowEnd
+48:            )
+49:        }
+50:        if (habitDurationDays < 1 || habitDurationDays > 15) {
+51:            return Category6CalculationResult(
+52:                isValid = false,
+53:                errorMessage = "Durasi kebiasaan haid ($habitDurationDays hari) tidak valid. Sesuai fiqih Mazhab Syafi'i (Tuhfatun Niswah & Uyunul Masa'il), batas maksimal haid adalah 15 hari.",
+54:                monthLength = monthLength,
+55:                habitDurationDays = habitDurationDays,
+56:                positionWindowStart = positionWindowStart,
+57:                positionWindowEnd = positionWindowEnd
+58:            )
+59:        }
+60:        if (positionWindowStart < 1) {
+61:            return Category6CalculationResult(
+62:                isValid = false,
+63:                errorMessage = "Awal rentang posisi yang diketahui ($positionWindowStart) minimal hari ke-1.",
+64:                monthLength = monthLength,
+65:                habitDurationDays = habitDurationDays,
+66:                positionWindowStart = positionWindowStart,
+67:                positionWindowEnd = positionWindowEnd
+68:            )
+69:        }
+70:        if (positionWindowEnd > monthLength) {
+71:            return Category6CalculationResult(
+72:                isValid = false,
+73:                errorMessage = "Akhir rentang posisi yang diketahui ($positionWindowEnd) tidak boleh melebihi jumlah hari dalam bulan ($monthLength hari).",
+74:                monthLength = monthLength,
+75:                habitDurationDays = habitDurationDays,
+76:                positionWindowStart = positionWindowStart,
+77:                positionWindowEnd = positionWindowEnd
+78:            )
+79:        }
+80:        if (positionWindowStart > positionWindowEnd) {
+81:            return Category6CalculationResult(
+82:                isValid = false,
+83:                errorMessage = "Awal rentang posisi ($positionWindowStart) tidak boleh lebih besar dari akhir rentang posisi ($positionWindowEnd).",
+84:                monthLength = monthLength,
+85:                habitDurationDays = habitDurationDays,
+86:                positionWindowStart = positionWindowStart,
+87:                positionWindowEnd = positionWindowEnd
+88:            )
+89:        }
+90:        val windowLength = positionWindowEnd - positionWindowStart + 1
+91:        if (habitDurationDays > windowLength) {
+92:            return Category6CalculationResult(
+93:                isValid = false,
+94:                errorMessage = "Durasi kebiasaan haid ($habitDurationDays hari) tidak boleh melebihi panjang rentang posisi yang diketahui ($windowLength hari: hari $positionWindowStart–$positionWindowEnd).",
+95:                monthLength = monthLength,
+96:                habitDurationDays = habitDurationDays,
+97:                positionWindowStart = positionWindowStart,
+98:                positionWindowEnd = positionWindowEnd
+99:            )
+100:       }
+...
+134:       // Jika tidak ada kandidat yang tersisa (terjadi kontradiksi input)
+135:       if (finalValidCandidates.isEmpty()) {
+136:           return Category6CalculationResult(
+137:               isValid = false,
+138:               errorMessage = "Kontradiksi input: seluruh kemungkinan posisi haid tereliminasi oleh hari yang diyakini suci ($certainPureDays) atau yakin haid ($certainHaidDays). Mohon periksa kembali input hari.",
+139:               monthLength = monthLength,
+140:               habitDurationDays = habitDurationDays,
+141:               positionWindowStart = positionWindowStart,
+142:               positionWindowEnd = positionWindowEnd,
+143:               certainPureDays = certainPureDays,
+144:               certainHaidDays = certainHaidDays,
+145:               generatedCandidatesCount = allCandidates.size,
+146:               validCandidates = emptyList(),
+147:               eliminatedPureCandidates = eliminatedPure,
+148:               eliminatedHaidCandidates = eliminatedHaid
+149:           )
+150:       }
+
+--------------------------------------------------------------------------------
+2. app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt
+--------------------------------------------------------------------------------
+KODE LAMA:
+Baris 75-76:
+75:         category6WindowStart: Int = 1,
+76:         category6WindowEnd: Int = 10,
+
+Baris 403-404:
+403:        category6WindowStart: Int = 1,
+404:        category6WindowEnd: Int = 10,
+
+Baris 1433-1455:
+1433:       val pureDays = category6PureDays ?: if (rememberedCertainPureDayOfMonth != null) setOf(rememberedCertainPureDayOfMonth) else setOf(1)
+1434:       val haidDays = category6HaidDays ?: if (rememberedCertainHaidDayOfMonth != null) setOf(rememberedCertainHaidDayOfMonth) else emptySet()
+1435:       val monthLen = category6MonthLength.coerceIn(1, 31)
+1436:       val cat6Calc = Category6Calculator.calculateCategory6(
+1437:           monthLength = monthLen,
+1438:           habitDurationDays = adatDurationDays,
+1439:           positionWindowStart = category6WindowStart.coerceAtLeast(1),
+1440:           positionWindowEnd = category6WindowEnd.coerceIn(category6WindowStart, monthLen),
+1441:           certainPureDays = pureDays,
+1442:           certainHaidDays = haidDays
+1443:       )
+
+KODE BARU:
+Baris 75-76:
+75:         category6WindowStart: Int = 1,
+76:         category6WindowEnd: Int? = null,
+
+Baris 403-404:
+403:        category6WindowStart: Int = 1,
+404:        category6WindowEnd: Int? = null,
+
+Baris 1433-1456:
+1433:       val pureDays = category6PureDays ?: if (rememberedCertainPureDayOfMonth != null) setOf(rememberedCertainPureDayOfMonth) else emptySet()
+1434:       val haidDays = category6HaidDays ?: if (rememberedCertainHaidDayOfMonth != null) setOf(rememberedCertainHaidDayOfMonth) else emptySet()
+1435:       val monthLen = category6MonthLength.coerceIn(1, 31)
+1436:       val endWindow = category6WindowEnd ?: monthLen
+1437:
+1438:       val cat6Calc = if (category6WindowStart > monthLen) {
+1439:           Category6CalculationResult(
+1440:               isValid = false,
+1441:               errorMessage = "Awal rentang posisi ($category6WindowStart) tidak boleh melebihi jumlah hari dalam bulan ($monthLen hari).",
+1442:               monthLength = monthLen,
+1443:               habitDurationDays = adatDurationDays,
+1444:               positionWindowStart = category6WindowStart,
+1445:               positionWindowEnd = endWindow
+1446:           )
+1447:       } else {
+1448:           Category6Calculator.calculateCategory6(
+1449:               monthLength = monthLen,
+1450:               habitDurationDays = adatDurationDays,
+1451:               positionWindowStart = category6WindowStart.coerceAtLeast(1),
+1452:               positionWindowEnd = endWindow.coerceIn(category6WindowStart, monthLen),
+1453:               certainPureDays = pureDays,
+1454:               certainHaidDays = haidDays
+1455:           )
+1456:       }
+
+--------------------------------------------------------------------------------
+3. app/src/main/java/com/example/ui/viewmodel/FiqihViewModel.kt
+--------------------------------------------------------------------------------
+KODE LAMA (Baris 594-601):
+594:    fun setCategory6MonthLength(length: Int) {
+595:        val len = length.coerceIn(28, 31)
+596:        _category6MonthLength.value = len
+597:        if (_category6WindowEnd.value > len) {
+598:            _category6WindowEnd.value = len
+599:        }
+600:        doCalculate()
+601:    }
+
+KODE BARU (Baris 594-602):
+594:    fun setCategory6MonthLength(length: Int) {
+595:        val len = length.coerceIn(28, 31)
+596:        val oldLen = _category6MonthLength.value
+597:        _category6MonthLength.value = len
+598:        if (_category6WindowEnd.value == oldLen || _category6WindowEnd.value > len) {
+599:            _category6WindowEnd.value = len
+600:        }
+601:        doCalculate()
+602:    }
+
+--------------------------------------------------------------------------------
+4. app/src/test/java/com/example/Category6CalculatorTest.kt
+--------------------------------------------------------------------------------
+KODE LAMA:
+[Hanya memuat pengujian dasar tanpa pengujian 6e penolakan adat >15, tanpa uji fallback null 6f, dan tanpa uji bulan 31 hari 6g]
+
+KODE BARU (Baris 165-378):
+165:    @Test
+166:    fun testCategory6_Case6a_Siklus30_Adat5_Rentang1to10_Hari1Suci() { ... }
+190:    @Test
+191:    fun testCategory6_Case6b_Siklus30_Adat15_Rentang1to20_TanpaHariSuci() { ... }
+213:    @Test
+214:    fun testCategory6_Case6c_Siklus30_Adat5_Rentang1to30_TanpaHariSuci() { ... }
+234:    @Test
+235:    fun testCategory6_Case6d_Siklus30_Adat10_Rentang1to30() { ... }
+255:    @Test
+256:    fun testCategory6_Case6e_AdatOver15_Rejected() { ... }
+300:    @Test
+301:    fun testCategory6_Case6f_NoDefaultHaidYakinWhenNoPositionInput() { ... }
+342:    @Test
+343:    fun testCategory6_Case6g_31DayMonth_WindowCovers31Days() { ... }
+
+================================================================================
+DAFTAR SEMUA TEST KATEGORI 6 (6a - 6g)
+================================================================================
+6a: Menguji siklus 30 hari, adat 5 hari, rentang 1-10, hari 1 yakin suci; hasil yang diharapkan: hari 1 suci yakin (NONE), hari 2-5 syak haid & suci (WUDHU), hari 6 haid yakin (NONE), hari 7-10 syak haid & inqitha' (GHUSL), hari 11-30 suci yakin (NONE).
+6b: Menguji siklus 30 hari, adat 15 hari, rentang 1-20, tanpa hari suci; hasil yang diharapkan: hari 1-5 syak (WUDHU), hari 6-15 haid yakin (NONE), hari 16-20 syak inqitha' (GHUSL), hari 21-30 suci yakin (NONE).
+6c: Menguji siklus 30 hari, adat 5 hari, rentang 1-30, tanpa hari suci; hasil yang diharapkan: hari 1-5 syak (WUDHU), hari 6-30 syak inqitha' (GHUSL), tanpa ada hari haid yakin.
+6d: Menguji siklus 30 hari, adat 10 hari, rentang 1-30, tanpa hari suci; hasil yang diharapkan: hari 1-10 syak (WUDHU), hari 11-30 syak inqitha' (GHUSL), tanpa ada hari haid yakin.
+6e: Menguji input adat di luar batas syar'i (>15 hari, misal 16 atau 20 hari); hasil yang diharapkan: input ditolak (isValid = false) dan menghasilkan pesan error batas maksimal haid 15 hari.
+6f: Menguji perhitungan tanpa input rentang dan hari suci (semua parameter posisi null); hasil yang diharapkan: rentang mencakup 1-30 hari, hari 1-5 syak (WUDHU), hari 6-30 syak inqitha' (GHUSL), dan tidak ada hari haid yakin palsu.
+6g: Menguji siklus bulan 31 hari tanpa input rentang khusus (category6WindowEnd null); hasil yang diharapkan: rentang mencakup penuh 1-31 hari hingga hari ke-31 tanpa terpotong.

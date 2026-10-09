@@ -111,7 +111,7 @@ object FiqihConsultationEngine {
             val replyText = """
                 Assalamu’alaikum warahmatullahi wabarakatuh, Ukhti yang dimuliakan Allah. 🌸
 
-                Sebagai asisten fiqih kewanitaan dan medis Anda, saya siap membantu menghitung dan menganalisis status darah Anda secara teliti berdasarkan pedoman Mazhab Syafi'i (*Uyunul Masa'il Linnisa'* Lirboyo & *Tuhfatun Niswah*).
+                Sebagai asisten fiqih kewanitaan dan medis Anda, saya siap membantu menghitung dan menganalisis status darah Anda secara teliti berdasarkan pedoman Mazhab Syafi'i (*Uyunul Masa'il Linnisa'* Lirboyo, *Tuhfatun Niswah*, & *Al-Ibanah wal-Ifadhah* Tarim).
 
                 Agar kalkulasi hukum dan konsekuensi ibadah Anda akurat, mohon berikan rincian berikut:
                 1. **Jenis kasus**: Apakah terkait **Haid** atau **Nifas** (pasca persalinan)?

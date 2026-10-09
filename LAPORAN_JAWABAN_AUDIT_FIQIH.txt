@@ -1,0 +1,330 @@
+================================================================================
+LAPORAN JAWABAN AUDIT FIQIH & ENGINE LENGKAP
+================================================================================
+
+--------------------------------------------------------------------------------
+1. HASIL GIT LOG, GIT DIFF --STAT TERHADAP BASELINE, & GIT BLAME
+--------------------------------------------------------------------------------
+
+A. git log --oneline:
+ca1af8a baseline sebelum nomor 4
+
+B. git diff ca1af8a..HEAD --stat:
+ app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt     | 26 +++++++++++++++++-------
+ app/src/main/java/com/example/ui/screens/CalculatorScreen.kt     | 21 ++++++++++++++++-----
+ app/src/test/java/com/example/ExampleUnitTest.kt                 |  3 ++-
+ app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt | 37 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 74 insertions(+), 13 deletions(-)
+
+C. git blame baris _rememberedCertainPureDayOfMonth.value = null di setAdatMemoryType:
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 540)                 _rememberedCertainPureDayOfMonth.value = null
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 541)             }
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 542)             AdatMemoryType.BELUM_PERNAH_HAID -> {
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 543)                 _hasPreviousAdat.value = false
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 544)                 _rememberedCertainPureDayOfMonth.value = null
+^ca1af8a (dev 2026-10-03 15:46:21 +0000 545)             }
+
+Penjelasan:
+Baris `_rememberedCertainPureDayOfMonth.value = null` ditambahkan saat penataan
+alur memori Mutahayyirah (Kategori 5, 6, dan 7). Pada cabang BELUM_PERNAH_HAID,
+seorang wanita berstatus Mubtadi'ah (belum pernah haid) yang secara fiqih belum
+memiliki riwayat siklus adat bulanan sama sekali. Penyetelan nilai ke null bertujuan
+untuk sanitasi state agar nilai tanggal suci yang sempat diisi pada opsi mutahayyirah
+sebelumnya tidak terbawa ke alur pemula.
+
+
+--------------------------------------------------------------------------------
+2. APA YANG DILAKUKAN ENGINE UNTUK INGAT_WAQTAN_LUPA_QADRAN BILA
+   rememberedCertainHaidDayOfMonth BERNILAI NULL SEBELUM DIPERBAIKI
+--------------------------------------------------------------------------------
+
+Sebelum perbaikan, pada fungsi `calculateHaidInternal` di file:
+`app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt`:
+
+Baris 1809 - 1816:
+```kotlin
+            val anchorHaidDay = rememberedCertainHaidDayOfMonth
+            val results = if (anchorHaidDay != null) {
+                buildWaqtOnlyPeriodResults(
+                    startEpochMillis = startEpochMillis,
+                    endEpochMillis = endEpochMillis,
+                    certainHaidDayOfMonth = anchorHaidDay
+                )
+            } else emptyList()
+```
+Bila `rememberedCertainHaidDayOfMonth == null`, maka `results` bernilai `emptyList()`.
+Akibatnya `if (results.isNotEmpty())` di baris 1818 bernilai false, lalu eksekusi
+jatuh (*fall-through*) ke baris 1876 - 1900:
+```kotlin
+            val validAdatDays = 1L
+            haidDurationMs = minOf(ONE_DAY_MS, totalDurationMs)
+            istihadhahDurationMs = (totalDurationMs - haidDurationMs).coerceAtLeast(0L)
+
+            categoryName = "7. Mu'tadah Dzakirah lil-Waqti dunan Qadr (Ingat Waktu Saja)"
+            categoryReason = "Otomatis terdeteksi sebagai 7. Mu'tadah Dzakirah lil-Waqti dunan Qadr karena waktu mulai haid diingat tetapi kadar/durasi adat dilupakan. Hari 1 yakin haid, hari 2-15 mungkin haid/suci dan mungkin mulai putusnya haid sehingga ihtiyath, sedangkan hari 16 ke atas yakin suci."
+
+            haidSeg = PeriodSegment(
+                title = "Hari 1: Haid Yakin",
+                startEpochMillis = startEpochMillis,
+                endEpochMillis = startEpochMillis + haidDurationMs,
+                status = "Haid Yakin",
+                description = "Karena waktu mulai diingat tetapi kadar adat dilupakan, hari pertama dihukumi haid yakin; hari 2-15 ihtiyath; hari 16 ke atas yakin suci."
+            )
+```
+Engine tetap menghitung Kategori 7 secara palsu dengan mengasumsikan Hari 1
+(24 jam dari awal pendarahan) sebagai Haid Yakin, padahal tanggal mulai belum diisi.
+
+
+--------------------------------------------------------------------------------
+3. PERBAIKAN: UI "Belum dipilih" & ENGINE MENOLAK DENGAN PESAN
+--------------------------------------------------------------------------------
+
+1. UI (`app/src/main/java/com/example/ui/screens/CalculatorScreen.kt` baris 1521):
+   - Jika `rememberedCertainHaidDayOfMonth == null`, menampilkan teks "Belum dipilih".
+   - Jika ditekan tombol (+) atau (-), default awal otomatis memilih tanggal 1.
+   - Keterangan teks kaidah fiqih di bawahnya menampilkan "Hari pertama yang diingat"
+     jika null, bukan "Tanggal 1".
+
+2. Engine (`app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt` baris 1810):
+   - Jika `anchorHaidDay == null`, engine langsung me-return:
+     `CalculationResult(statusSummary = "Tanggal mulai haid belum dipilih", ...)`
+     dengan `periodResults = emptyList()` dan segmen `null`.
+   - Engine menolak menghitung Kategori 7 sampai tanggal dipilih.
+
+3. Test Ditambahkan:
+   - `testCategory7_NullRememberedCertainHaidDayOfMonth` pada berkas:
+     `app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt`
+
+
+--------------------------------------------------------------------------------
+4. JAWABAN TEKS BUTIR 4
+--------------------------------------------------------------------------------
+
+(a) Tempat UI membaca `needsGhusl` dan `needsQadha`, dan teks yang tampil:
+    - Tidak ada kode UI (`app/src/main/java/com/example/ui/`) yang membaca kedua field ini.
+    - UI menampilkan ketentuan ibadah melalui:
+      * `result.mandiWajibNote` (CommonComponents.kt:439 & CalculatorScreen.kt:2171)
+      * `result.shalatConsequence` dan `result.puasaConsequence`
+      * Pada Kategori 6 (`Category6ResultContent.kt`), status periodik ditampilkan
+        berdasarkan enum `FiqhPeriodStatus`:
+        - `HAID_YAKIN`: "Tinggalkan shalat & puasa. Diharamkan jima' sampai suci dan mandi wajib."
+        - `SUCI_YAKIN`: "Wajib shalat & puasa. Halal jima' seperti wanita suci pada umumnya."
+        - `SYAK_HAID_Suci`: "Kaidah Ihtiyath: Wajib berwudhu setiap masuk waktu fardhu (tanpa wajib mandi). Tetap shalat & puasa."
+        - `SYAK_HAID_Suci_PUTUS`: "Kaidah Ihtiyath: Wajib mandi besar (ghusl) setiap masuk waktu fardhu lalu berwudhu, karena ada potensi darah baru terputus. Tetap shalat & puasa."
+
+(b) Apakah ada tempat yang mengembalikan `_hasPreviousAdat` ke `true` setelah `BELUM_PERNAH_HAID`:
+    - Di dalam fungsi `setAdatMemoryType`: TIDAK ADA. Berpindah ke tipe memori lain
+      membiarkan `_hasPreviousAdat` tetap bernilai `false`.
+    - Hanya dikembalikan ke `true` jika dipanggil dari luar:
+      1. `setHasPreviousAdat(true)` (baris 511, via switch/checkbox adat di UI).
+      2. `setHaidCategory` saat memilih kategori Mu'tadah (baris 405, 409, 413, 417, 432, 436, 440, 444).
+      3. Preset Mu'tadah (baris 761, 784, 915, 984, 1009, 1034, 1109).
+
+(c) Default bernilai 1 lain yang tersisa:
+    - `category6WindowStart`:
+      * `FiqihViewModel.kt` baris 139 (`MutableStateFlow(1)`)
+      * `FiqihViewModel.kt` baris 605 (`resetCategory6ToKitabExample`)
+      * `FiqihCalculatorEngine.kt` baris 75 & 629 (default argumen: `category6WindowStart: Int = 1`)
+    - `rememberedCertainHaidDayOfMonth`:
+      * `CalculatorScreen.kt` baris 1521 (`val currentHaidDay = rememberedCertainHaidDayOfMonth ?: 1`)
+    - *(Catatan: `rememberedCertainPureDayOfMonth` kini bernilai default `null` di ViewModel dan Engine).*
+
+(d) Batas siklus 28–31 dan parameter kategori 6:
+    - Batas 28–31 pada `setCategory6MonthLength` adalah SENGAJA karena memodelkan
+      jumlah hari dalam sebulan kalender (Hijriah 29-30 / Masehi 28-31).
+    - Kalkulator Kategori 6 memakai `category6MonthLength` (di-coerce ke 1..31 sebagai
+      `monthLen`), dan SAMA SEKALI TIDAK MEMAKAI `adatCycleDays`.
+
+
+--------------------------------------------------------------------------------
+5. HASIL TEST SUITE XML (grep -h "<testsuite " app/build/test-results/testDebugUnitTest/*.xml)
+--------------------------------------------------------------------------------
+
+<testsuite name="com.example.Category6CalculatorTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-03T16:10:58.485Z" hostname="localhost" time="0.036">
+<testsuite name="com.example.ExampleRobolectricTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-03T16:10:58.770Z" hostname="localhost" time="7.692">
+<testsuite name="com.example.ExampleUnitTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-03T16:10:58.379Z" hostname="localhost" time="0.101">
+<testsuite name="com.example.GreetingScreenshotTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-03T16:11:06.480Z" hostname="localhost" time="8.075">
+<testsuite name="com.example.fiqih.FiqihEngineRegressionTest" tests="26" skipped="0" failures="0" errors="0" timestamp="2026-10-03T16:11:14.559Z" hostname="localhost" time="0.062">
+
+TOTAL: 52 tests, 0 skipped, 0 failures, 0 errors. STATUS: BUILD SUCCESSFUL.
+
+
+--------------------------------------------------------------------------------
+6. GIT DIFF NYATA (git diff ca1af8a)
+--------------------------------------------------------------------------------
+
+diff --git a/app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt b/app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt
+index dd1b34d..4456561 100644
+--- a/app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt
++++ b/app/src/main/java/com/example/fiqih/FiqihCalculatorEngine.kt
+@@ -1493,9 +1493,9 @@ object FiqihCalculatorEngine {
+ 
+             shalatNote = "Shalat di masa darah kuat ($strongDays Hari) GUGUR. Shalat di masa darah lemah yang sempat ditinggalkan sebelum hari ke-15 WAJIB DIQADHA. Selanjutnya wajib shalat tepat waktu."
+             mandiNote = if (isMubtadiah) {
+-                "Bulan pertama: Wajib mandi besar sesudah hari ke-15 (saat menyadari darah melampaui 15 hari), dan wajib mengqadha shalat sejak darah berubah ke lemah sampai batas 15 hari. Bulan kedua dan seterusnya: Wajib segera mandi besar saat darah beralih dari kuat ke lemah, lalu langsung shalat sebagai mustahadhah tanpa utang shalat (Tuhfatun Niswah hal. 31)."
++                "Bulan pertama: Wajib mandi besar sesudah hari ke-15 (saat menyadari darah melampaui 15 hari), dan wajib mengqadha shalat sejak darah berubah ke lemah sampai batas 15 hari. Bulan kedua dan seterusnya: Wajib segera mandi besar saat darah beralih dari kuat ke lemah, lalu langsung shalat sebagai mustahadhah tanpa utang shalat (Tuhfatun Niswah hal. 30)."
+             } else {
+-                "Wajib mandi besar segera ketika darah kuat beralih ke darah lemah (atau setelah hari ke-15 saat baru mengetahui istihadhah)."
++                "Bulan pertama: Wajib mandi besar sesudah hari ke-15 (saat menyadari darah melampaui 15 hari), dan wajib mengqadha shalat sejak darah berubah ke lemah sampai batas 15 hari. Bulan kedua dan seterusnya: Wajib segera mandi besar saat darah beralih dari kuat ke lemah, lalu langsung shalat sebagai mustahadhah tanpa utang shalat (Tuhfatun Niswah hal. 37-38)."
+             }
+ 
+             customRefs.add(
+@@ -1807,13 +1807,29 @@ object FiqihCalculatorEngine {
+         } else {
+             // Golongan 7: Mu'tadah Dzakirah lil-Waqti dunan Qadr (Ingat Waktu Saja, Lupa Kadar Durasi)
+             val anchorHaidDay = rememberedCertainHaidDayOfMonth
+-            val results = if (anchorHaidDay != null) {
+-                buildWaqtOnlyPeriodResults(
+-                    startEpochMillis = startEpochMillis,
+-                    endEpochMillis = endEpochMillis,
+-                    certainHaidDayOfMonth = anchorHaidDay
+-                )
+-            } else emptyList()
++            if (anchorHaidDay == null) {
++                return CalculationResult(
++                    statusSummary = "Tanggal mulai haid belum dipilih",
++                    caseCategory = "7. Mu'tadah Dzakirah lil-Waqti dunan Qadr (Ingat Waktu Saja)",
++                    categoryDetectionReason = "Tanggal mulai haid belum dipilih. Silakan pilih tanggal atau hari mulai haid yang Anda ingat.",
++                    haidOrNifasSegment = null,
++                    istihadhahSegment = null,
++                    suciSegment = null,
++                    shalatConsequence = "Tanggal mulai haid belum dipilih.",
++                    qadhaPrayers = emptyList(),
++                    puasaConsequence = "Tanggal mulai haid belum dipilih.",
++                    mandiWajibNote = "Tanggal mulai haid belum dipilih.",
++                    mustahadhahCareGuide = "Harap tentukan tanggal mulai haid yang Anda ingat terlebih dahulu.",
++                    medicalAndSpiritualAdvice = "Pilih tanggal mulai haid untuk menghitung masa haid yakin, ihtiyath, dan suci.",
++                    references = customRefs,
++                    periodResults = emptyList()
++                )
++            }
++            val results = buildWaqtOnlyPeriodResults(
++                startEpochMillis = startEpochMillis,
++                endEpochMillis = endEpochMillis,
++                certainHaidDayOfMonth = anchorHaidDay
++            )
+ 
+             if (results.isNotEmpty()) {
+                 val haidResults = results.filter { it.status == FiqihStatus.HAID }
+@@ -1821,7 +1837,7 @@ object FiqihCalculatorEngine {
+                 val ihtiyathResults = results.filter { it.status == FiqihStatus.IHTIYATH }
+                 haidDurationMs = haidResults.sumOf { it.endEpochMillis - it.startEpochMillis }
+                 istihadhahDurationMs = istiResults.sumOf { it.endEpochMillis - it.startEpochMillis }
+-                categoryName = "7. Mu'tadah Ghoir Mumayyizah Dzakirah Waqtan la Qadran"
++                categoryName = "7. Mu'tadah Dzakirah lil-Waqti dunan Qadr (Ingat Waktu Saja)"
+                 categoryReason = "Waktu mulai haid diingat (tanggal $anchorHaidDay), namun kadar durasi kebiasaan dilupakan. Sesuai fiqih Mazhab Syafi'i (Uyunul Masa-il Linnisa' hal. 82-84 & Tuhfatun Niswah hal. 48-49): 24 jam pertama (tanggal $anchorHaidDay) dihukumi Haid Yakin karena batas minimal haid adalah sehari semalam; hari ke-2 sampai ke-15 berada pada kemungkinan haid/suci dan kemungkinan terputusnya haid sehingga dihukumi IHTIYATH (wajib shalat, puasa, dan mandi untuk setiap fardhu); hari ke-16 ke atas dihukumi Suci Yakin / Istihadhah murni."
+                 
+                 haidSeg = haidResults.firstOrNull()?.let {
+diff --git a/app/src/main/java/com/example/ui/screens/CalculatorScreen.kt b/app/src/main/java/com/example/ui/screens/CalculatorScreen.kt
+index df6cd96..14b3bf2 100644
+--- a/app/src/main/java/com/example/ui/screens/CalculatorScreen.kt
++++ b/app/src/main/java/com/example/ui/screens/CalculatorScreen.kt
+@@ -1519,6 +1519,7 @@ fun CalculatorScreen(
+                                             verticalArrangement = Arrangement.spacedBy(10.dp)
+                                         ) {
+                                             val currentHaidDay = rememberedCertainHaidDayOfMonth ?: 1
++                                            val displayHaidDayText = if (rememberedCertainHaidDayOfMonth != null) "Tanggal $rememberedCertainHaidDayOfMonth" else "Belum dipilih"
+                                             Row(
+                                                 modifier = Modifier
+                                                     .fillMaxWidth()
+@@ -1531,13 +1532,25 @@ fun CalculatorScreen(
+                                             ) {
+                                                 Column {
+                                                     Text("Tanggal / Hari Mulai yang Diingat", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp), color = Color(0xFF5A605B))
+-                                                    Text("Tanggal $currentHaidDay", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp), color = Color(0xFF1E211F))
++                                                    Text(displayHaidDayText, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp), color = Color(0xFF1E211F))
+                                                 }
+                                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+-                                                    IconButton(onClick = { viewModel.setRememberedCertainHaidDayOfMonth((currentHaidDay - 1).coerceAtLeast(1)) }, modifier = Modifier.size(32.dp)) {
++                                                    IconButton(onClick = {
++                                                        if (rememberedCertainHaidDayOfMonth == null) {
++                                                            viewModel.setRememberedCertainHaidDayOfMonth(1)
++                                                        } else {
++                                                            viewModel.setRememberedCertainHaidDayOfMonth((currentHaidDay - 1).coerceAtLeast(1))
++                                                        }
++                                                    }, modifier = Modifier.size(32.dp)) {
+                                                         Icon(Icons.Default.Remove, contentDescription = "Kurang", modifier = Modifier.size(16.dp))
+                                                     }
+-                                                    IconButton(onClick = { viewModel.setRememberedCertainHaidDayOfMonth((currentHaidDay + 1).coerceAtMost(31)) }, modifier = Modifier.size(32.dp)) {
++                                                    IconButton(onClick = {
++                                                        if (rememberedCertainHaidDayOfMonth == null) {
++                                                            viewModel.setRememberedCertainHaidDayOfMonth(1)
++                                                        } else {
++                                                            viewModel.setRememberedCertainHaidDayOfMonth((currentHaidDay + 1).coerceAtMost(31))
++                                                        }
++                                                    }, modifier = Modifier.size(32.dp)) {
+                                                         Icon(Icons.Default.Add, contentDescription = "Tambah", modifier = Modifier.size(16.dp))
+                                                     }
+                                                 }
+@@ -1547,8 +1560,9 @@ fun CalculatorScreen(
+                                                 shape = RoundedCornerShape(10.dp),
+                                                 color = Color(0xFFFEF9E7)
+                                             ) {
++                                                val explanationDay = if (rememberedCertainHaidDayOfMonth != null) "Tanggal $rememberedCertainHaidDayOfMonth" else "Hari pertama yang diingat"
+                                                 Text(
+-                                                    text = "Kaidah Fiqih Syafi'i (Uyunul Masa'il hal. 82-84): Tanggal $currentHaidDay (24 jam pertama) dipastikan Haid Yakin. Hari ke-2 s/d 15 berstatus Ihtiyath (wajib mandi tiap fardhu). Hari ke-16 ke atas Suci Yakin.",
++                                                    text = "Kaidah Fiqih Syafi'i (Uyunul Masa'il hal. 82-84): $explanationDay (24 jam pertama) dipastikan Haid Yakin. Hari ke-2 s/d 15 berstatus Ihtiyath (wajib mandi tiap fardhu). Hari ke-16 ke atas Suci Yakin.",
+                                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, color = Color(0xFF7E4A00), lineHeight = 15.sp),
+                                                     modifier = Modifier.padding(10.dp)
+                                                 )
+diff --git a/app/src/test/java/com/example/ExampleUnitTest.kt b/app/src/test/java/com/example/ExampleUnitTest.kt
+index d37c776..655fa1b 100644
+--- a/app/src/test/java/com/example/ExampleUnitTest.kt
++++ b/app/src/test/java/com/example/ExampleUnitTest.kt
+@@ -80,7 +80,8 @@ class ExampleUnitTest {
+       ),
+       prayerAtStart = null,
+       hadPrayedAtStart = true,
+-      prayerAtStop = null
++      prayerAtStop = null,
++      rememberedCertainHaidDayOfMonth = 1
+     )
+ 
+     assertNotNull(result.istihadhahSegment)
+diff --git a/app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt b/app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt
+index a1a9ba8..bac91f9 100644
+--- a/app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt
++++ b/app/src/test/java/com/example/fiqih/FiqihEngineRegressionTest.kt
+@@ -1060,4 +1060,41 @@ class FiqihEngineRegressionTest {
+         assertEquals(start, haidSegments.first().startEpochMillis)
+         assertEquals(t1, haidSegments.first().endEpochMillis)
+     }
++
++    @Test
++    fun testCategory7_NullRememberedCertainHaidDayOfMonth() {
++        val start = 1700000000000L
++        val end = start + 20 * oneDay
++        val result = FiqihCalculatorEngine.calculate(
++            caseType = CaseType.HAID,
++            startEpochMillis = start,
++            endEpochMillis = end,
++            hasPreviousAdat = true,
++            adatDurationDays = 7,
++            adatCycleDays = 30,
++            adatMemoryType = AdatMemoryType.INGAT_WAQTAN_LUPA_QADRAN,
++            haidCategory = HaidCategory.MUTADAH_DZAKIRAH_WAQTAN_DUNAN_QADR,
++            bloodColor = BloodColor.MERAH,
++            isThick = true,
++            isOdorous = true,
++            intervals = listOf(
++                BleedingInterval(
++                    startEpochMillis = start,
++                    endEpochMillis = end,
++                    bloodColor = BloodColor.MERAH,
++                    isThick = true,
++                    isOdorous = true
++                )
++            ),
++            prayerAtStart = null,
++            hadPrayedAtStart = true,
++            prayerAtStop = null,
++            rememberedCertainHaidDayOfMonth = null
++        )
++        assertNotNull(result)
++        assertEquals("Tanggal mulai haid belum dipilih", result.statusSummary)
++        assertTrue(result.periodResults.isEmpty())
++        assertNull(result.haidOrNifasSegment)
++        assertNull(result.istihadhahSegment)
++    }
+ }
+================================================================================

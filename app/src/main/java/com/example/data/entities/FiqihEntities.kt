@@ -1,9 +1,13 @@
 package com.example.data.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "calculation_history")
+@Entity(
+    tableName = "calculation_history",
+    indices = [Index(value = ["caseType", "startEpochMillis", "endEpochMillis"], unique = true)]
+)
 data class CalculationHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
@@ -25,7 +29,10 @@ data class CalculationHistoryEntity(
     val note: String = ""
 )
 
-@Entity(tableName = "qadha_prayers")
+@Entity(
+    tableName = "qadha_prayers",
+    indices = [Index(value = ["prayerName", "dateString", "reason"], unique = true)]
+)
 data class QadhaPrayerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val prayerName: String, // e.g. "Dzuhur", "Ashar", "Maghrib", "Isya", "Subuh"
@@ -51,3 +58,17 @@ data class UserAdatProfileEntity(
     val lastPeriodEndMillis: Long = 0L
 )
 
+@Entity(tableName = "daily_blood_logs")
+data class DailyBloodLogEntity(
+    @PrimaryKey val dateString: String, // "yyyy-MM-dd"
+    val epochDay: Long = 0L,
+    val caseType: String = "HAID",
+    val hasBlood: Boolean = true,
+    val bloodColor: String = "MERAH",
+    val flowIntensity: String = "SEDANG",
+    val startTime: String = "08:00",
+    val stopTime: String = "20:00",
+    val isPaused: Boolean = false,
+    val notes: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
