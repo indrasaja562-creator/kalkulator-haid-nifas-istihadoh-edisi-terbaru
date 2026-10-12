@@ -47,14 +47,6 @@ import com.example.ui.theme.EmeraldDeep
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldTertiary
 import com.example.ui.viewmodel.FiqihViewModel
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.entry.FloatEntry
-import com.patrykandpatrick.vico.core.entry.entryModelOf
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -408,8 +400,8 @@ fun ProfileScreen(
                         ThemeSettingsCard(
                             currentPalette = currentPalette,
                             currentMode = currentMode,
-                            onPaletteChange = { viewModel.setThemePalette(it) },
-                            onModeChange = { viewModel.setThemeMode(it) }
+                            onPaletteSelected = { viewModel.setThemePalette(it) },
+                            onModeSelected = { viewModel.setThemeMode(it) }
                         )
                     }
                 }
@@ -520,13 +512,13 @@ fun ProfileScreen(
 
     if (showFeedbackDialog) {
         FeedbackDialog(
-            onDismissRequest = { showFeedbackDialog = false }
+            onDismiss = { showFeedbackDialog = false }
         )
     }
 
     if (showSupportDialog) {
         SupportDialog(
-            onDismissRequest = { showSupportDialog = false }
+            onDismiss = { showSupportDialog = false }
         )
     }
 }
@@ -1374,40 +1366,54 @@ fun CycleDashboard(
                     }
                 }
             } else {
-                val durations = remember(haidCycles) {
-                    haidCycles.map { it.haidHours / 24f }
-                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    val maxDuration = haidCycles.maxOfOrNull { it.haidHours / 24f }?.coerceAtLeast(1f) ?: 15f
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        haidCycles.takeLast(6).forEach { cycle ->
+                            val days = cycle.haidHours / 24f
+                            val heightFraction = (days / maxDuration).coerceIn(0.15f, 1f)
+                            val dateLabel = SimpleDateFormat("dd MMM", Locale("id", "ID")).format(Date(cycle.startEpochMillis))
 
-                val chartEntryModel = remember(durations) {
-                    val entries = durations.mapIndexed { index, duration ->
-                        FloatEntry(x = index.toFloat(), y = duration)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "${days.toInt()}h",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                    color = EmeraldPrimary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.5f)
+                                        .fillMaxHeight(heightFraction)
+                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                        .background(EmeraldPrimary)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = dateLabel,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = Color(0xFF6B726C),
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
-                    entryModelOf(entries)
                 }
-
-                val bottomAxisFormatter = remember(haidCycles) {
-                    AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-                        val index = value.toInt()
-                        if (index in haidCycles.indices) {
-                            val cal = Calendar.getInstance().apply { timeInMillis = haidCycles[index].startEpochMillis }
-                            SimpleDateFormat("dd MMM", Locale("id", "ID")).format(cal.time)
-                        } else ""
-                    }
-                }
-
-                val startAxisFormatter = remember {
-                    AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
-                        "${value.toInt()} hari"
-                    }
-                }
-
-                Chart(
-                    chart = columnChart(),
-                    model = chartEntryModel,
-                    startAxis = rememberStartAxis(valueFormatter = startAxisFormatter),
-                    bottomAxis = rememberBottomAxis(valueFormatter = bottomAxisFormatter),
-                    modifier = Modifier.fillMaxWidth().height(180.dp)
-                )
             }
         }
     }
@@ -1544,7 +1550,7 @@ fun EditProfileDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PRESET_AVATAR_TEMPLATES.take(3).forEach { tmpl ->
+                            for (tmpl in PRESET_AVATAR_TEMPLATES.take(3)) {
                                 Surface(
                                     modifier = Modifier
                                         .weight(1f)

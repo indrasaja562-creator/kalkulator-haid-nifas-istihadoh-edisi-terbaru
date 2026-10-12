@@ -186,21 +186,21 @@ fun MainAppScreen(
         ThemeSettingsDialog(
             currentPalette = currentPalette,
             currentMode = currentMode,
-            onPaletteChange = { viewModel.setThemePalette(it) },
-            onModeChange = { viewModel.setThemeMode(it) },
+            onPaletteSelected = { viewModel.setThemePalette(it) },
+            onModeSelected = { viewModel.setThemeMode(it) },
             onDismiss = { showThemeDialog = false }
         )
     }
 
     if (showFeedbackDialog) {
         FeedbackDialog(
-            onDismissRequest = { showFeedbackDialog = false }
+            onDismiss = { showFeedbackDialog = false }
         )
     }
 
     if (showSupportDialog) {
         SupportDialog(
-            onDismissRequest = { showSupportDialog = false }
+            onDismiss = { showSupportDialog = false }
         )
     }
 
@@ -599,5 +599,3 @@ fun ElegantBottomBar(
         }
     }
 }
-
-@Composable
