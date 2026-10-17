@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "1.1.1",
+  "versionCode": 4,
+  "versionName": "1.1.2",
   "downloadUrl": "https://drive.google.com/file/d/1v078GNpKQp4_31ODdbVVCYEmJsXvEpM7/view?usp=drivesdk",
-  "notes": "Versi 1.1.1: kalender tersambung ke kalkulator dan riwayat, pengingat qadha harian, cadangkan dan pulihkan data, ikon baru, sifat darah dihapus dari input fase."
+  "notes": "Versi 1.1.2: analisis kasus pribadi dari kalender lewat tombol Analisis Fiqih di kalender, fase kalender digabung per warna, pengingat qadha harian, cadangkan dan pulihkan data, ikon baru, sifat darah dihapus dari input fase."
 }
