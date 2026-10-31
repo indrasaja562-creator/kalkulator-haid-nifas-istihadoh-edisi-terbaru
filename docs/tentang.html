@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="Tentang Kalkulator Fiqih Wanita: alat bantu memahami hukum haid, nifas, dan istihadhah menurut Mazhab Syafi'i." />
+    <link rel="icon" href="data:," />
+    <title>Tentang — Kalkulator Fiqih Wanita</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root{
+        color-scheme: light;
+        --bg:#faf7f2; --surface:#ffffff; --ink:#1e211f; --muted:#535a55;
+        --accent:#134e3f; --accent-strong:#0d3d32; --accent-soft:#e2ede6; --gold:#c5a059;
+        --line:#ebe5dc; --radius:14px;
+        --serif:"Fraunces",Georgia,"Times New Roman",serif;
+        --sans:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+        --gutter:20px;
+      }
+      *{box-sizing:border-box}
+      body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+      .wrap{max-width:1120px;margin:0 auto;padding:0 var(--gutter) 72px}
+      :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+      header.top{padding:32px 0 22px}
+      header.top::before{content:"";display:block;width:56px;height:3px;background:var(--gold);border-radius:2px;margin-bottom:18px}
+      header.top h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,11vw,64px);line-height:1;letter-spacing:-.025em;margin:0 0 16px;color:var(--accent-strong)}
+      header.top p{margin:0;color:var(--muted);max-width:58ch;font-size:16px;line-height:1.7}
+      .back{display:inline-block;margin-top:18px;font-weight:700;color:var(--accent);text-decoration:none}
+      .back:hover{text-decoration:underline}
+      .card{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:var(--radius);padding:24px 20px;box-shadow:0 1px 2px rgba(13,61,50,.05),0 10px 28px rgba(13,61,50,.06)}
+      .card + .card{margin-top:28px}
+      .card h2{font-family:var(--serif);font-size:clamp(24px,6vw,30px);font-weight:500;letter-spacing:-.015em;margin:0 0 10px;line-height:1.15;color:var(--accent-strong)}
+      .card p{margin:0 0 14px}
+      .card p:last-child{margin-bottom:0}
+      .card ul{margin:0 0 14px;padding-left:22px}
+      .card li{margin-bottom:6px}
+      .badge-mazhab{display:inline-block;margin-top:16px;font-size:13.5px;font-weight:700;color:var(--accent-strong);background:var(--accent-soft);border:1px solid rgba(19,78,63,.25);padding:8px 14px;border-radius:999px;line-height:1.4}
+      .site-footer{max-width:1120px;margin:48px auto 0;padding:24px var(--gutter) 0;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:center;font-size:15px}
+      .site-footer a{color:var(--accent);font-weight:700;text-decoration:none}
+      .site-footer a:hover{text-decoration:underline}
+      .site-footer span{color:var(--muted)}
+      @media (min-width:700px){:root{--gutter:32px}.card{padding:32px 30px}}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1>Tentang</h1>
+        <p>Kalkulator Fiqih Wanita — alat bantu memahami hukum haid, nifas, dan istihadhah.</p>
+        <span class="badge-mazhab">Mazhab Syafi'i · Rujukan: Tuhfatun Niswah &amp; 'Uyunul Masa-il</span>
+        <br /><a class="back" href="index.html">← Kembali ke Kalkulator</a>
+      </header>
+
+      <section class="card">
+        <h2>Apa itu Kalkulator Fiqih Wanita?</h2>
+        <p>Kalkulator Fiqih Wanita adalah alat bantu berbasis web untuk menentukan status darah — haid, nifas, istihadhah, suci, atau ihtiyath — beserta konsekuensi shalat, puasa, mandi wajib, dan qadha-nya. Pengguna cukup memasukkan fase-fase keluarnya darah, data adat (kebiasaan haid sebelumnya), dan data nifas bila diperlukan, lalu kalkulator menampilkan hasil hukumnya.</p>
+        <p>Situs ini juga menyediakan kalender pencatatan darah harian, daftar qadha yang tersimpan, dan panduan fikih wanita yang disusun dari kitab rujukan.</p>
+      </section>
+
+      <section class="card">
+        <h2>Rujukan</h2>
+        <p>Logika perhitungan situs ini mengikuti Mazhab Syafi'i, dengan dua rujukan utama:</p>
+        <ul>
+          <li><strong>Tuhfatun Niswah — Edisi Revisi</strong>, rujukan resmi audit logika fikih aplikasi dan situs ini.</li>
+          <li><strong>'Uyunul Masa-il Linnisa'</strong> (Lirboyo), kitab tanya jawab fikih wanita.</li>
+        </ul>
+        <p>Hasil kalkulator ini adalah alat bantu belajar dan memahami hukum. Untuk kasus yang rumit atau meragukan, tetap konsultasikan kepada ustadz/ustadzah atau kiai yang memahami bab ini.</p>
+      </section>
+
+      <section class="card">
+        <h2>Pengembang</h2>
+        <p>Situs ini dikembangkan oleh <strong>Indra Saputra</strong>, sebagai versi web dari aplikasi Android Kalkulator Fiqih Wanita. Aplikasi dan situs ini dibuat untuk menjawab kebingungan para wanita muslimah seputar hukum haid, nifas, dan istihadhah.</p>
+        <p>Pertanyaan atau masukan seputar situs ini dapat disampaikan melalui halaman <a href="kontak.html">Kontak</a>.</p>
+      </section>
+    </div>
+    <footer class="site-footer">
+      <a href="tentang.html">Tentang</a>
+      <a href="kebijakan-privasi.html">Kebijakan Privasi</a>
+      <a href="kontak.html">Kontak</a>
+      <span>Kalkulator Fiqih Wanita</span>
+    </footer>
+  </body>
+</html>
